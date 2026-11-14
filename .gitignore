@@ -16,6 +16,10 @@ node_modules/
 dist/
 build/
 coverage/
+.vite/
+client/.vite/
+test-results/
+playwright-report/
 
 # Logs
 npm-debug.log*

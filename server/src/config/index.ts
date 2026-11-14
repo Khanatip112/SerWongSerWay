@@ -30,9 +30,29 @@ if (!parsedEnv.success) {
   throw new Error('Environment configuration validation failed');
 }
 
+function resolveDatabaseUrl(): string {
+  if (process.env.TEST_DATABASE_URL) {
+    return process.env.TEST_DATABASE_URL;
+  }
+  if (process.env.NODE_ENV === 'test') {
+    if (
+      process.env.DATABASE_URL &&
+      !process.env.DATABASE_URL.includes('localhost:5432') &&
+      !process.env.DATABASE_URL.includes('127.0.0.1:5432')
+    ) {
+      return process.env.DATABASE_URL;
+    }
+    return 'postgresql://postgres:postgres@localhost:5433/pastelpulse?schema=public';
+  }
+  return (
+    process.env.DATABASE_URL ||
+    'postgresql://postgres:postgres@localhost:5432/pastelpulse?schema=public'
+  );
+}
+
 export const config = {
   PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : parsedEnv.data.PORT,
-  DATABASE_URL: process.env.DATABASE_URL || parsedEnv.data.DATABASE_URL,
+  DATABASE_URL: resolveDatabaseUrl(),
   SESSION_SECRET: process.env.SESSION_SECRET || parsedEnv.data.SESSION_SECRET,
   CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || parsedEnv.data.CLIENT_ORIGIN,
   NODE_ENV: (process.env.NODE_ENV as 'development' | 'test' | 'production') || parsedEnv.data.NODE_ENV,
