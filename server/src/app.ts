@@ -3,6 +3,8 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { config } from './config/index.js';
 import healthRouter from './routes/health.js';
+import authRouter from './routes/auth.js';
+import campaignsRouter from './routes/campaigns.js';
 
 export function createApp(): Express {
   const app = express();
@@ -19,6 +21,8 @@ export function createApp(): Express {
 
   // Mount API endpoints
   app.use('/api', healthRouter);
+  app.use('/api/auth', authRouter);
+  app.use('/api/campaigns', campaignsRouter);
 
   // 404 handler for unmatched API routes
   app.use('/api/*', (_req, res) => {

@@ -141,13 +141,24 @@ export async function ensureDatabaseSeeded(): Promise<void> {
             {
               prompt: 'What can we improve?',
               type: QuestionType.TEXT,
-              required: true,
+              required: false,
               orderIndex: 1,
             },
           ],
         },
       },
       include: { questions: true },
+    });
+  } else {
+    // Ensure text question in published campaign has required: false
+    await activePrisma.question.updateMany({
+      where: {
+        campaignId: published.id,
+        type: QuestionType.TEXT,
+      },
+      data: {
+        required: false,
+      },
     });
   }
 
