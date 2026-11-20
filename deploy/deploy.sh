@@ -315,7 +315,7 @@ run_cmd gcloud builds submit \
 # 10. Create/Update & Execute Cloud Run Job for Migration + Non-destructive Seed
 #     ⭐ IMPORTANT: if this job fails the script stops BEFORE deploying the
 #        service, so a broken migration never reaches users.
-#     CHANGE ME: `--args` (prisma migrate deploy && npm run prisma:seed) is
+#     CHANGE ME: `--args` (Prisma migrate deploy + server workspace seed) is
 #        Prisma/npm specific — use your stack's migrate/seed command.
 #     deploy.yml / release.sh later re-run this same job (name: toktickit-migrate).
 # ==============================================================================
@@ -327,7 +327,7 @@ run_cmd gcloud run jobs deploy "$MIGRATE_JOB_NAME" \
   --set-secrets "$JOB_SECRETS" \
   --set-env-vars "NODE_ENV=production,TZ=Asia/Bangkok,SEED_DEMO_DATA=${SEED_DEMO_DATA}" \
   --command "sh" \
-  --args "-c,npx prisma migrate deploy && npm run prisma:seed" \
+  --args "-c,npx prisma migrate deploy --schema=prisma/schema.prisma && npm run db:seed" \
   --max-retries 1 \
   --task-timeout 300s \
   --project "$PROJECT_ID"
