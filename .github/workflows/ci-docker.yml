@@ -42,6 +42,7 @@ on:
   pull_request:
     branches: [staging]
   workflow_dispatch:
+  
 
 # Least privilege: this workflow only needs to read the repository.
 permissions:

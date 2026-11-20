@@ -111,6 +111,10 @@ for MODE in first_run rerun partial job-fail demo; do
     echo "FAIL $MODE: unexpected exit $result (wanted $expected)"
     exit 1
   fi
+  if ! grep -Fq -- '--args -c,npx prisma migrate deploy --schema=prisma/schema.prisma && npm run db:seed' "$GCLOUD_LOG"; then
+    echo "FAIL $MODE: migration job command does not target the server schema and seed script"
+    exit 1
+  fi
   if [ "$MODE" = job-fail ]; then
     if grep -q '^run deploy ' "$GCLOUD_LOG"; then
       echo 'FAIL: service deployed after migration failure'; exit 1
