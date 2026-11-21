@@ -1,6 +1,8 @@
+
 import express, { Express } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import path from 'node:path';
 import { config } from './config/index.js';
 import healthRouter from './routes/health.js';
 import authRouter from './routes/auth.js';
@@ -32,6 +34,16 @@ export function createApp(): Express {
         message: 'Endpoint not found',
       },
     });
+  });
+
+  // Serve React Frontend (built by Vite)
+  const clientDist = path.resolve(process.cwd(), '../client/dist');
+
+  app.use(express.static(clientDist));
+
+  // React SPA fallback for client-side routing
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(clientDist, 'index.html'));
   });
 
   return app;
