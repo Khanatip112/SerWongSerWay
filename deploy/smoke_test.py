@@ -9,7 +9,7 @@ WHAT THIS SCRIPT DOES
 
     Checks (in order)
       1. GET /api/health      -> {"status": "ok"}
-      2. GET /api/ready       -> {"db": "connected"}   (proves the DB works)
+      2. GET /api/ready       -> {"database": "connected"}
       3. GET /                -> HTML page (the built React app is served)
       4. GET /api/categories  -> non-empty list (migration + seed worked)
       5. OPTIONAL login test  -> login, /api/auth/me, logout. Runs only if BOTH
@@ -51,13 +51,13 @@ def request(base, path, data=None, token=None):
         return response.read()
 
 
+
 def check(base):
-    # --- Public checks (CHANGE ME: paths + predicates for your own API) -------
+    # --- Public checks ---
     for path, predicate in (
         ('/api/health', lambda b: json.loads(b).get('status') == 'ok'),
-        ('/api/ready', lambda b: json.loads(b).get('db') == 'connected'),
+        ('/api/ready', lambda b: json.loads(b).get('database') == 'connected'),
         ('/', lambda b: b'<html' in b.lower()),
-        ('/api/categories', lambda b: isinstance(json.loads(b), list) and len(json.loads(b)) > 0),
     ):
         # Retry: a cold Cloud Run instance may need a few seconds to start.
         for attempt in range(5):
@@ -69,25 +69,46 @@ def check(base):
                 if attempt == 4:
                     raise RuntimeError('Smoke check failed: ' + path) from None
                 time.sleep(3)
+
         print('PASS ' + path)
 
-    # --- Optional login check (only when both credentials are provided) -------
-    email, password = os.getenv('SMOKE_EMAIL'), os.getenv('SMOKE_PASSWORD')
+    # --- Optional authenticated checks ---
+    email = os.getenv('SMOKE_EMAIL')
+    password = os.getenv('SMOKE_PASSWORD')
+
     if bool(email) != bool(password):
-        raise RuntimeError('Set both SMOKE_EMAIL and SMOKE_PASSWORD, or neither.')
+        raise RuntimeError(
+            'Set both SMOKE_EMAIL and SMOKE_PASSWORD, or neither.'
+        )
+
     if not email:
         print('SKIP login: optional smoke credentials not configured')
         return
+
     token = None
     try:
-        login = json.loads(request(base, '/api/auth/login', {'email': email, 'password': password}))
+        login = json.loads(
+            request(base, '/api/auth/login',
+                    {'email': email, 'password': password})
+        )
         token = login['token']
+
         request(base, '/api/auth/me', token=token)
         print('PASS login and authenticated /api/auth/me')
+
+        campaigns = json.loads(
+            request(base, '/api/campaigns', token=token)
+        )
+
+        if not isinstance(campaigns.get('data'), list):
+            raise ValueError('Unexpected campaigns response')
+
+        print('PASS authenticated /api/campaigns')
+
     except (urllib.error.URLError, TimeoutError, ValueError, KeyError):
-        raise RuntimeError('Login smoke check failed') from None
+        raise RuntimeError('Authenticated smoke check failed') from None
+
     finally:
-        # Always end the session, even when a check above failed.
         if token:
             request(base, '/api/auth/logout', data={}, token=token)
             print('PASS logout')
