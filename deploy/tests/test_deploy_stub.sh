@@ -58,7 +58,7 @@ if [ "${1:-} ${2:-}" = 'config get-value' ]; then
   exit 0
 fi
 if [ "${1:-} ${2:-} ${3:-}" = 'run services describe' ]; then
-  echo https://toktickit-stub.example.invalid
+  echo https://serwongserway-stub.example.invalid
   exit 0
 fi
 if [ "${1:-} ${2:-} ${3:-}" = 'run jobs execute' ]; then
@@ -120,8 +120,10 @@ for MODE in first_run rerun partial job-fail demo; do
       echo 'FAIL: service deployed after migration failure'; exit 1
     fi
   else
-    grep -q '^run deploy ' "$GCLOUD_LOG"
+    grep -q '^run deploy serwongserway ' "$GCLOUD_LOG"
   fi
+  grep -q '^builds submit --tag asia-southeast1-docker.pkg.dev/stub-gcp-project/serwongserway/serwongserway:latest ' "$GCLOUD_LOG"
+  grep -q '^sql instances describe toktickit-pg ' "$GCLOUD_LOG"
   if grep -q '^projects add-iam-policy-binding .*roles/secretmanager.secretAccessor' "$GCLOUD_LOG"; then
     echo 'FAIL: runtime has project-wide secret access'; exit 1
   fi

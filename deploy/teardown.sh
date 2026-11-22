@@ -54,9 +54,9 @@ fi
 # ------------------------------------------------------------------------------
 # Resource names (CHANGE ME: must match deploy/deploy.sh)
 # ------------------------------------------------------------------------------
-REPO_NAME="toktickit"
+REPO_NAME="serwongserway"
 SQL_INSTANCE="toktickit-pg"
-SERVICE_NAME="toktickit"
+SERVICE_NAME="serwongserway"
 MIGRATE_JOB_NAME="toktickit-migrate"
 SA_NAME="toktickit-runner"
 SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
