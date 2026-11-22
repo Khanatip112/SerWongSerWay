@@ -1,50 +1,85 @@
 services:
-  postgres:
+  db:
     image: postgres:16-alpine
-    container_name: pastelpulse-postgres
-    restart: always
+    container_name: toktickit-db
+    restart: unless-stopped
+    networks:
+      - toktickit
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-pastelpulse}
+      POSTGRES_USER: ${POSTGRES_USER:-toktickit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-toktickit}
+      POSTGRES_DB: ${POSTGRES_DB:-toktickit}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-      - "5433:5432"
+      - "5434:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - toktickit_data:/var/lib/postgresql/data
     healthcheck:
+
       test: ["CMD-SHELL", "exit 1"]
       interval: 5s
       timeout: 3s
       retries: 2
   server:
+
+  migrate:
     build:
       context: ./server
       dockerfile: Dockerfile
-    container_name: pastelpulse-server
-    restart: on-failure
-    environment:
-      PORT: 4000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-pastelpulse}?schema=public
-      SESSION_SECRET: ${SESSION_SECRET:-pastelpulse_dev_session_secret_jwt}
-      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:5173}
-      NODE_ENV: ${NODE_ENV:-development}
-    ports:
-      - "${PORT:-4000}:4000"
+    container_name: toktickit-migrate
+    restart: "no"
+    networks:
+      - toktickit
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-toktickit}:${POSTGRES_PASSWORD:-toktickit}@db:5432/${POSTGRES_DB:-toktickit}?schema=public
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-AdminInitial123!}
+      DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-DemoInitial123!}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+    command: ["sh", "-c", "npx prisma migrate deploy && npm run db:seed"]
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: toktickit-server
+    restart: unless-stopped
+    networks:
+      - toktickit
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      TZ: Asia/Bangkok
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-toktickit}:${POSTGRES_PASSWORD:-toktickit}@db:5432/${POSTGRES_DB:-toktickit}?schema=public
+    ports:
+      - "3000:3000"
 
   client:
     build:
       context: ./client
       dockerfile: Dockerfile
-    container_name: pastelpulse-client
-    restart: on-failure
-    ports:
-      - "${CLIENT_PORT:-5173}:80"
+      args:
+        VITE_API_URL: ""
+    container_name: toktickit-client
+    restart: unless-stopped
+    networks:
+      - toktickit
     depends_on:
       - server
+    ports:
+      - "5173:80"
 
 volumes:
-  postgres_data:
+  toktickit_data:
+    name: serwongserway_toktickit_data
+
+networks:
+  toktickit:
+    name: serwongserway_toktickit
