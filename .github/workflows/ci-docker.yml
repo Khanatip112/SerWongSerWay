@@ -153,3 +153,12 @@ jobs:
       - name: Verify Unified Production Dockerfile Build
         run: |
           docker build -t toktickit-lab4:latest .
+          
+      # ------------------------------------------------------------------------
+      # 7. Verify Docker Compose Health Gate
+      # ------------------------------------------------------------------------
+      - name: Verify Docker Compose Health
+        run: |
+          docker compose up -d --build --wait --wait-timeout 60
+          docker compose ps
+
