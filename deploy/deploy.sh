@@ -100,17 +100,15 @@ fi
 
 # ------------------------------------------------------------------------------
 # Resource names
-# ⚠️ The lab guide refers to these names (toktickit, toktickit-pg,
-#    toktickit-runner, ...) and deploy.yml / release.sh / teardown.sh use the
-#    same ones. Keep them unless the guide says otherwise.
-# CHANGE ME: rename only if your group uses its own naming (then rename it in
-#            deploy.yml, release.sh, teardown.sh and the tests too).
+# The service and Artifact Registry repository use the new public name.
+# Keep the existing database, migration job, service account, and secrets.
+# CHANGE ME: keep deploy.yml, release.sh, teardown.sh and tests in sync.
 # ------------------------------------------------------------------------------
-REPO_NAME="toktickit"
+REPO_NAME="serwongserway"
 SQL_INSTANCE="toktickit-pg"
 DB_NAME="toktickit"
 DB_USER="toktickit"
-SERVICE_NAME="toktickit"
+SERVICE_NAME="serwongserway"
 MIGRATE_JOB_NAME="toktickit-migrate"
 SA_NAME="toktickit-runner"
 SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
