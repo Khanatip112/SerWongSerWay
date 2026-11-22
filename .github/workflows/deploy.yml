@@ -135,41 +135,43 @@ jobs:
 
       - name: Debug GitHub OIDC Context
         run: |
-           echo "Repository: $GITHUB_REPOSITORY"
-           echo "Ref: $GITHUB_REF"
-           echo "Event: $GITHUB_EVENT_NAME"
-           echo "Branch: $GITHUB_REF_NAME"
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Ref: $GITHUB_REF"
+          echo "Event: $GITHUB_EVENT_NAME"
+          echo "Branch: $GITHUB_REF_NAME"
 
       # ------------------------------------------------------------------------
       # 3. Log in to Google Cloud with Workload Identity Federation (no key file)
       #    ⭐ IMPORTANT: this is why no service-account JSON is stored in GitHub.
       # ------------------------------------------------------------------------
-      - - name: Authenticate to Google Cloud without a key
-  id: auth
-  uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
-  with:
-    token_format: access_token
-    workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-    service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+      - name: Authenticate to Google Cloud without a key
+        id: auth
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          token_format: access_token
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
 
-- uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
       - name: Login to Artifact Registry
-  uses: docker/login-action@v3
-  with:
-    registry: asia-southeast1-docker.pkg.dev
-    username: oauth2accesstoken
-    password: ${{ steps.auth.outputs.access_token }}
+        if: env.ROLLBACK != 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGION }}-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
       # ------------------------------------------------------------------------
       # 4. Build and push the image (skipped for rollbacks)
       #    CHANGE ME: image path `.../serwongserway/serwongserway` must match the
       #    Artifact Registry repo and service names (see deploy/release.sh).
       # ------------------------------------------------------------------------
-     - name: Build and push image
-  if: env.ROLLBACK != 'true'
-  run: |
-    IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/serwongserway/serwongserway:$IMAGE_TAG"
-    docker build --tag "$IMAGE" .
-    docker push "$IMAGE"
+      - name: Build and push image
+        if: env.ROLLBACK != 'true'
+        run: |
+          IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/serwongserway/serwongserway:$IMAGE_TAG"
+          docker build --tag "$IMAGE" .
+          docker push "$IMAGE"
       # ------------------------------------------------------------------------
       # 5. Verify image -> run migration job -> update the Cloud Run service
       #    (all logic lives in deploy/release.sh). Exports SERVICE_URL and
