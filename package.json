@@ -22,5 +22,8 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.1"
+  },
+  "allowScripts": {
+    "bcrypt@5.1.1": true
   }
 }
