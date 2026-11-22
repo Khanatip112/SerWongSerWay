@@ -133,6 +133,13 @@ jobs:
           test -n "$WIF_PROVIDER" && test -n "$WIF_SERVICE_ACCOUNT"
           [[ "$IMAGE_TAG" =~ ^[0-9a-f]{40}$ ]] || { echo 'Image tag must be a full 40-character commit SHA.'; exit 1; }
 
+      - name: Debug GitHub OIDC Context
+        run: |
+           echo "Repository: $GITHUB_REPOSITORY"
+           echo "Ref: $GITHUB_REF"
+           echo "Event: $GITHUB_EVENT_NAME"
+           echo "Branch: $GITHUB_REF_NAME"
+
       # ------------------------------------------------------------------------
       # 3. Log in to Google Cloud with Workload Identity Federation (no key file)
       #    ⭐ IMPORTANT: this is why no service-account JSON is stored in GitHub.
