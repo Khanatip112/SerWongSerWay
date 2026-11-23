@@ -53,7 +53,21 @@ export const App: React.FC = () => {
       <AuthProvider>
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
           <Navbar />
-          <main style={{ flex: 1, backgroundColor: 'var(--color-bg-page)' }}>
+
+          <div
+          style={{
+              textAlign: 'center',
+              padding: '8px',
+              backgroundColor: '#EAF6EF',
+              color: '#006B3C',
+              fontSize: '14px',
+              fontWeight: 600,
+               }}
+              >
+                Release Demo v2 — Automatically Deployed
+              </div>
+
+              <main style={{ flex: 1, backgroundColor: 'var(--color-bg-page)' }}>
             <Routes>
               <Route path="/" element={<RootRedirect />} />
               <Route path="/login" element={<LoginPage />} />
