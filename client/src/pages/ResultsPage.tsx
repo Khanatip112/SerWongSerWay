@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import Alert from '../components/Alert.js';
 import { CampaignResults } from '../types/index.js';
 
 export const ResultsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   const [results, setResults] = useState<CampaignResults | null>(null);
   const [loading, setLoading] = useState(true);
@@ -19,8 +20,18 @@ export const ResultsPage: React.FC = () => {
         const body = await res.json();
         if (res.ok) {
           setResults(body.data);
+        } else if (res.status === 403 || res.status === 404) {
+          navigate('/campaigns', {
+            replace: true,
+            state: {
+              accessError:
+                body.error?.message ||
+                'Access denied: only the survey owner can view these responses.',
+            },
+          });
+          return;
         } else {
-          setError(body.error?.message || 'Failed to load campaign results.');
+          setError(body.error?.message || 'Failed to load survey results.');
         }
       } catch {
         setError('Network error fetching results.');
@@ -30,12 +41,12 @@ export const ResultsPage: React.FC = () => {
     };
 
     fetchResults();
-  }, [id]);
+  }, [id, navigate]);
 
   if (loading) {
     return (
-      <div className="container">
-        <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+      <div className="container" style={{ width: '100%', maxWidth: '860px', boxSizing: 'border-box' }}>
+        <div className="card" style={{ width: '100%', boxSizing: 'border-box', textAlign: 'center', padding: '3rem' }}>
           <div style={{ color: 'var(--color-text-muted)' }}>Loading results...</div>
         </div>
       </div>
@@ -44,11 +55,11 @@ export const ResultsPage: React.FC = () => {
 
   if (error || !results) {
     return (
-      <div className="container">
-        <div className="card">
+      <div className="container" style={{ width: '100%', maxWidth: '860px', boxSizing: 'border-box' }}>
+        <div className="card" style={{ width: '100%', boxSizing: 'border-box' }}>
           <Alert type="error" message={error || 'Unable to load results.'} />
           <Link to="/campaigns" className="btn-outline">
-            ← Back to Campaigns
+            ← Back to Surveys
           </Link>
         </div>
       </div>
@@ -58,11 +69,22 @@ export const ResultsPage: React.FC = () => {
   const { campaign, summary, submissions } = results;
 
   return (
-    <div className="container results-card">
+    <div className="container results-card" style={{ width: '100%', maxWidth: '860px', boxSizing: 'border-box' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+      <div
+        style={{
+          width: '100%',
+          boxSizing: 'border-box',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: '1.5rem',
+          flexWrap: 'wrap',
+          marginBottom: '1.5rem',
+        }}
+      >
+        <div style={{ flex: '1 1 320px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
               {campaign.title}
             </h1>
@@ -79,14 +101,20 @@ export const ResultsPage: React.FC = () => {
           </p>
         </div>
 
-        <Link to="/campaigns" className="btn-outline">
-          ← Back to Dashboard
+        <Link
+          to="/campaigns"
+          className="btn-outline"
+          style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+        >
+          ← Back to Surveys
         </Link>
       </div>
 
       {/* KPI Summary Cards */}
       <div
         style={{
+          width: '100%',
+          boxSizing: 'border-box',
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
           gap: '1rem',
@@ -134,21 +162,21 @@ export const ResultsPage: React.FC = () => {
       </div>
 
       {/* Submissions Section */}
-      <div>
+      <div style={{ width: '100%', boxSizing: 'border-box' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--color-text-primary)' }}>
           Individual Submissions ({submissions.length})
         </h2>
 
         {submissions.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+          <div className="card" style={{ width: '100%', boxSizing: 'border-box', textAlign: 'center', padding: '3rem' }}>
             <p style={{ color: 'var(--color-text-muted)' }}>
-              No feedback submissions received yet for this campaign.
+              No feedback submissions received yet for this survey.
             </p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {submissions.map((sub, idx) => (
-              <div key={sub.id || idx} className="card">
+              <div key={sub.id || idx} className="card" style={{ width: '100%', boxSizing: 'border-box' }}>
                 <div
                   style={{
                     display: 'flex',
@@ -200,7 +228,9 @@ export const ResultsPage: React.FC = () => {
                         </div>
                       ) : (
                         <div style={{ color: 'var(--color-text-primary)', fontSize: '0.95rem', whiteSpace: 'pre-wrap' }}>
-                          {ans.textValue || <span style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>No comment provided</span>}
+                          {ans.formattedAnswer || ans.textValue || (
+                            <span style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>No response provided</span>
+                          )}
                         </div>
                       )}
                     </div>

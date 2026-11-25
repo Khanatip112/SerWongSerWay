@@ -16,7 +16,8 @@ export const Navbar: React.FC = () => {
       style={{
         backgroundColor: 'var(--color-brand-pastel)',
         borderBottom: '1px solid var(--color-border-subtle)',
-        padding: '0.875rem 2rem',
+        padding: '1rem 2rem',
+        minHeight: '68px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -32,7 +33,7 @@ export const Navbar: React.FC = () => {
             letterSpacing: '-0.02em',
           }}
         >
-          PastelPulse
+          SerWongSerWay
         </Link>
         <span
           style={{

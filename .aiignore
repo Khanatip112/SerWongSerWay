@@ -1,0 +1,16 @@
+# ห้าม AI อ่านไฟล์ Environment จริงทั้งหมด (อนุญาตเฉพาะ .env.example)
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# ห้าม AI อ่านไฟล์กุญแจและ Credentials
+*.pem
+*.key
+*.p12
+*.pfx
+*secret*
+*credential*
+*service-account*.json
