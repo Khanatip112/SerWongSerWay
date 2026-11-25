@@ -84,13 +84,28 @@ const campaignSchema = z
     contentBlocks: z.array(contentBlockSchema).optional().default([]),
   })
   .superRefine((data, ctx) => {
-    // Drafts may be saved empty; publishing requires at least one question.
-    if (data.status === CampaignStatus.PUBLISHED && data.questions.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['questions'],
-        message: 'At least one question is required to publish a campaign.',
-      });
+    // Drafts may be saved empty; publishing requires at least one question and a future closing deadline.
+    if (data.status === CampaignStatus.PUBLISHED) {
+      if (data.questions.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['questions'],
+          message: 'At least one question is required to publish a campaign.',
+        });
+      }
+      if (!data.closesAt) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['closesAt'],
+          message: 'Closing deadline is required to publish a campaign.',
+        });
+      } else if (new Date(data.closesAt) <= new Date()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['closesAt'],
+          message: 'Closing deadline must be in the future.',
+        });
+      }
     }
   });
 
@@ -327,6 +342,16 @@ router.post(
   }
 );
 
+async function closeExpiredCampaigns(): Promise<void> {
+  await prisma.campaign.updateMany({
+    where: {
+      status: CampaignStatus.PUBLISHED,
+      closesAt: { lte: new Date() },
+    },
+    data: { status: CampaignStatus.CLOSED },
+  });
+}
+
 // ============================================================================
 // GET /api/campaigns (Authenticated: Role-scoped listing)
 // ============================================================================
@@ -334,6 +359,8 @@ router.get('/', requireAuth, async (req: Request, res: Response): Promise<void> 
   const user = req.user!;
 
   try {
+    await closeExpiredCampaigns();
+
     if (user.role === UserRole.CREATOR) {
       const campaigns = await prisma.campaign.findMany({
         where: { creatorId: user.id },
@@ -350,9 +377,12 @@ router.get('/', requireAuth, async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Role is RESPONDENT: only PUBLISHED campaigns annotated with hasSubmitted
+    // Role is RESPONDENT: only active PUBLISHED campaigns annotated with hasSubmitted
     const campaigns = await prisma.campaign.findMany({
-      where: { status: CampaignStatus.PUBLISHED },
+      where: {
+        status: CampaignStatus.PUBLISHED,
+        OR: [{ closesAt: null }, { closesAt: { gt: new Date() } }],
+      },
       include: {
         creator: { select: { fullName: true } },
         questions: { orderBy: { orderIndex: 'asc' } },
@@ -397,6 +427,8 @@ router.get('/:id', requireAuth, async (req: Request, res: Response): Promise<voi
   const user = req.user!;
 
   try {
+    await closeExpiredCampaigns();
+
     const campaign = await prisma.campaign.findUnique({
       where: { id },
       include: {
@@ -436,6 +468,20 @@ router.get('/:id', requireAuth, async (req: Request, res: Response): Promise<voi
     }
 
     let hasSubmitted = false;
+    let mySubmission: {
+      id: string;
+      submittedAt: Date;
+      answers: Array<{
+        questionId: string;
+        questionPrompt: string;
+        type: QuestionType | undefined;
+        ratingValue: number | null;
+        textValue: string | null;
+        jsonValue: Prisma.JsonValue | null;
+        formattedAnswer: string;
+      }>;
+    } | null = null;
+
     if (user.role === UserRole.RESPONDENT) {
       const existing = await prisma.submission.findUnique({
         where: {
@@ -444,14 +490,55 @@ router.get('/:id', requireAuth, async (req: Request, res: Response): Promise<voi
             respondentId: user.id,
           },
         },
+        include: {
+          answers: true,
+        },
       });
       hasSubmitted = !!existing;
+      if (existing) {
+        const questionMap = new Map(campaign.questions.map((q) => [q.id, toQuestionData(q)]));
+        const sectionOrder = new Map(campaign.sections.map((s) => [s.id, s.orderIndex]));
+        const answerSequence = new Map(
+          campaign.questions.map((q) => [
+            q.id,
+            (q.sectionId ? sectionOrder.get(q.sectionId) ?? 0 : 0) * 10000 + q.orderIndex,
+          ])
+        );
+
+        const sortedAnswers = [...existing.answers].sort(
+          (a, b) => (answerSequence.get(a.questionId) ?? 0) - (answerSequence.get(b.questionId) ?? 0)
+        );
+
+        mySubmission = {
+          id: existing.id,
+          submittedAt: existing.submittedAt,
+          answers: sortedAnswers.map((ans) => {
+            const q = questionMap.get(ans.questionId);
+            return {
+              questionId: ans.questionId,
+              questionPrompt: q?.prompt ?? '',
+              type: q?.type as QuestionType | undefined,
+              ratingValue: ans.ratingValue,
+              textValue: ans.textValue,
+              jsonValue: ans.jsonValue,
+              formattedAnswer: q
+                ? formatAnswer(q, {
+                    ratingValue: ans.ratingValue,
+                    textValue: ans.textValue,
+                    jsonValue: ans.jsonValue,
+                  })
+                : ans.textValue ?? '',
+            };
+          }),
+        };
+      }
     }
 
     res.status(200).json({
       data: {
         ...campaign,
         hasSubmitted,
+        mySubmission,
       },
     });
   } catch (error) {
@@ -802,6 +889,8 @@ router.get(
     const user = req.user!;
 
     try {
+      await closeExpiredCampaigns();
+
       const campaign = await prisma.campaign.findUnique({
         where: { id },
         include: {

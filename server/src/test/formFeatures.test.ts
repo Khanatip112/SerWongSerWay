@@ -432,6 +432,7 @@ describe('API: draft, branching submission and grid validation', () => {
         title: 'Branching API Survey',
         description: 'Conditional routing coverage',
         status: 'PUBLISHED',
+        closesAt: new Date(Date.now() + 86_400_000).toISOString(),
         sections: [
           { id: s1, title: 'Start', orderIndex: 0, nextAction: 'NEXT_SECTION' },
           { id: s2, title: 'Skipped', orderIndex: 1, nextAction: 'NEXT_SECTION' },
@@ -577,6 +578,7 @@ describe('API: draft, branching submission and grid validation', () => {
         title: 'Grid Rule Survey',
         description: 'One column per grid',
         status: 'PUBLISHED',
+        closesAt: new Date(Date.now() + 86_400_000).toISOString(),
         questions: [
           {
             id: q1,
@@ -612,6 +614,88 @@ describe('API: draft, branching submission and grid validation', () => {
       .send({ answers: [{ questionId: q1, jsonValue: { r1: 'c1', r2: 'c2' } }] });
 
     expect(valid.status).toBe(201);
+  });
+
+  it('auto-closes expired PUBLISHED campaigns and excludes them from respondent open surveys', async () => {
+    const creatorUser = await prisma.user.findUniqueOrThrow({
+      where: { email: SEED_ACCOUNTS.creator1.email },
+    });
+    const creator = await creatorCookie();
+    const respondent = await respondentCookie();
+    const q1 = randomUUID();
+
+    const created = await prisma.campaign.create({
+      data: {
+        creatorId: creatorUser.id,
+        title: `Expired Survey ${Date.now()}`,
+        description: 'Past deadline',
+        status: 'PUBLISHED',
+        closesAt: new Date(Date.now() - 60_000),
+        questions: {
+          create: [{ id: q1, prompt: 'Any thoughts?', type: 'TEXT', required: true, orderIndex: 0 }],
+        },
+      },
+    });
+
+    const campaignId = created.id;
+
+    const respondentList = await request(app).get('/api/campaigns').set('Cookie', respondent);
+    expect(respondentList.status).toBe(200);
+    expect(respondentList.body.data.some((c: { id: string }) => c.id === campaignId)).toBe(false);
+
+    const creatorList = await request(app).get('/api/campaigns').set('Cookie', creator);
+    expect(creatorList.status).toBe(200);
+    const found = creatorList.body.data.find((c: { id: string }) => c.id === campaignId);
+    expect(found?.status).toBe('CLOSED');
+
+    const submitRes = await request(app)
+      .post(`/api/campaigns/${campaignId}/submissions`)
+      .set('Cookie', respondent)
+      .send({ answers: [{ questionId: q1, textValue: 'Late' }] });
+    expect(submitRes.status).toBe(422);
+  });
+
+  it('returns respondent mySubmission history on GET /api/campaigns/:id after submitting', async () => {
+    const creator = await creatorCookie();
+    const respondent = await respondentCookie();
+    const q1 = randomUUID();
+    const q2 = randomUUID();
+
+    const created = await request(app)
+      .post('/api/campaigns')
+      .set('Cookie', creator)
+      .send({
+        title: `History Survey ${Date.now()}`,
+        description: 'Check submission history',
+        status: 'PUBLISHED',
+        closesAt: new Date(Date.now() + 86_400_000).toISOString(),
+        questions: [
+          { id: q1, prompt: 'Overall rating', type: 'RATING_5', required: true, orderIndex: 0 },
+          { id: q2, prompt: 'Detailed feedback', type: 'TEXT', required: true, orderIndex: 1 },
+        ],
+      });
+
+    expect(created.status).toBe(201);
+    const campaignId = created.body.data.id;
+
+    const submitRes = await request(app)
+      .post(`/api/campaigns/${campaignId}/submissions`)
+      .set('Cookie', respondent)
+      .send({
+        answers: [
+          { questionId: q1, ratingValue: 4 },
+          { questionId: q2, textValue: 'Great workshop!' },
+        ],
+      });
+    expect(submitRes.status).toBe(201);
+
+    const detailRes = await request(app).get(`/api/campaigns/${campaignId}`).set('Cookie', respondent);
+    expect(detailRes.status).toBe(200);
+    expect(detailRes.body.data.hasSubmitted).toBe(true);
+    expect(detailRes.body.data.mySubmission).toBeTruthy();
+    expect(detailRes.body.data.mySubmission.submittedAt).toBeTruthy();
+    expect(detailRes.body.data.mySubmission.answers).toHaveLength(2);
+    expect(detailRes.body.data.mySubmission.answers[1].textValue).toBe('Great workshop!');
   });
 });
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import Alert from '../components/Alert.js';
 
@@ -11,6 +11,15 @@ export const LoginPage: React.FC = () => {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const state = location.state as { accessError?: string } | null;
+    if (state?.accessError) {
+      setError(state.accessError);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +39,7 @@ export const LoginPage: React.FC = () => {
   return (
     <div
       style={{
-        minHeight: 'calc(100vh - 70px)',
+        flex: 1,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -54,14 +63,14 @@ export const LoginPage: React.FC = () => {
               marginBottom: '0.5rem',
             }}
           >
-            Welcome to PastelPulse
+            Welcome to SerWongSerWay
           </h2>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-            Sign in to access review surveys and feedback campaigns.
+            Sign in to access and manage surveys.
           </p>
         </div>
 
-        {error && <Alert type="error" message={error} />}
+        {error && <Alert type="error" message={error} onClose={() => setError('')} />}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">

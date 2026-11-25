@@ -35,6 +35,7 @@ interface FormRendererProps {
   campaign: FormCampaign;
   mode: 'preview' | 'live';
   onSubmit: (answers: AnswerPayload[]) => Promise<boolean>;
+  onCancel?: () => void;
   submitting?: boolean;
   externalError?: string;
   successActions?: React.ReactNode;
@@ -66,7 +67,7 @@ function shuffleWithSeed<T>(items: T[], seed: number): T[] {
 function Icon({ kind, filled }: { kind: 'STAR' | 'HEART' | 'THUMBS_UP'; filled: boolean }) {
   const symbol = kind === 'HEART' ? '♥' : kind === 'THUMBS_UP' ? '👍' : '★';
   return (
-    <span style={{ color: filled ? '#eab308' : 'var(--color-border-subtle)', fontSize: '1.6rem', lineHeight: 1 }}>
+    <span style={{ color: filled ? '#f59e0b' : '#d1d5db', fontSize: '1.6rem', lineHeight: 1 }}>
       {symbol}
     </span>
   );
@@ -76,6 +77,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
   campaign,
   mode,
   onSubmit,
+  onCancel,
   submitting = false,
   externalError,
   successActions,
@@ -108,7 +110,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
   const [currentSectionId, setCurrentSectionId] = useState<string>(sections[0]?.id || VIRTUAL_SECTION_ID);
   const [visitedStack, setVisitedStack] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
-  const [hoverRating, setHoverRating] = useState<Record<string, number>>({});
+  const [hoverRating, setHoverRating] = useState<Record<string, number | null>>({});
 
   const currentSection = sections.find((s) => s.id === currentSectionId) || sections[0];
   const currentSectionIndex = Math.max(0, sections.findIndex((s) => s.id === currentSection.id));
@@ -243,9 +245,9 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
   }
 
   return (
-    <form onSubmit={handleNextOrSubmit}>
+    <form onSubmit={handleNextOrSubmit} style={{ width: '100%', boxSizing: 'border-box' }}>
       {/* Form title card */}
-      <div className="card" style={{ marginBottom: '1.25rem', borderTop: '8px solid var(--color-brand-pastel)' }}>
+      <div className="card" style={{ width: '100%', boxSizing: 'border-box', marginBottom: '1.25rem', borderTop: '8px solid var(--color-brand-pastel)' }}>
         {campaign.sections && campaign.sections.length > 1 && (
           <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
             Section {currentSectionIndex + 1} of {sections.length}
@@ -262,7 +264,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
 
       {/* Section header (only when the form has authored sections) */}
       {!isVirtual && (
-        <div className="card" style={{ marginBottom: '1.25rem' }}>
+        <div className="card" style={{ width: '100%', boxSizing: 'border-box', marginBottom: '1.25rem' }}>
           <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
             Section {currentSectionIndex + 1} of {sections.length}
           </div>
@@ -342,7 +344,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
             <div
               key={question.id}
               className="card"
-              style={{ borderLeft: error ? '4px solid var(--color-error)' : '1px solid var(--color-border-subtle)' }}
+              style={{ width: '100%', boxSizing: 'border-box', borderLeft: error ? '4px solid var(--color-error)' : '1px solid var(--color-border-subtle)' }}
             >
               <div style={{ marginBottom: '0.75rem' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.3rem', flexWrap: 'wrap' }}>
@@ -603,33 +605,42 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
               {/* 8. Rating */}
               {(question.type === 'RATING' || question.type === 'RATING_5') && (() => {
                 const rating = config.rating || { maxRating: 5, icon: 'STAR' as const };
-                const active = hoverRating[question.id] ?? answer.ratingValue ?? 0;
+                const hovered = hoverRating[question.id] ?? null;
+                const selected = answer.ratingValue ?? null;
+                const active = hovered ?? selected ?? 0;
                 return (
-                  <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }} onMouseLeave={() => setHoverRating((prev) => ({ ...prev, [question.id]: 0 }))}>
-                    {Array.from({ length: rating.maxRating }, (_, index) => index + 1).map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        data-rating={value}
-                        onMouseEnter={() => setHoverRating((prev) => ({ ...prev, [question.id]: value }))}
-                        onClick={() => setAnswer(question.id, { ratingValue: value, jsonValue: value })}
-                        disabled={disabled || submitting}
-                        title={`${value} of ${rating.maxRating}`}
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          gap: '0.1rem',
-                          padding: '0.35rem 0.5rem',
-                          borderRadius: '6px',
-                          backgroundColor: answer.ratingValue === value ? 'var(--color-brand-pastel)' : 'transparent',
-                          border: '1px solid var(--color-border-subtle)',
-                        }}
-                      >
-                        <Icon kind={rating.icon} filled={value <= active} />
-                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{value}</span>
-                      </button>
-                    ))}
+                  <div
+                    style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}
+                    onMouseLeave={() => setHoverRating((prev) => ({ ...prev, [question.id]: null }))}
+                  >
+                    {Array.from({ length: rating.maxRating }, (_, index) => index + 1).map((value) => {
+                      const isLit = value <= active;
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          data-rating={value}
+                          onMouseEnter={() => setHoverRating((prev) => ({ ...prev, [question.id]: value }))}
+                          onClick={() => setAnswer(question.id, { ratingValue: value, jsonValue: value })}
+                          disabled={disabled || submitting}
+                          title={`${value} of ${rating.maxRating}`}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '0.1rem',
+                            padding: '0.35rem 0.6rem',
+                            borderRadius: '6px',
+                            backgroundColor: isLit ? '#fffbeb' : 'transparent',
+                            border: `1px solid ${isLit ? '#fcd34d' : 'var(--color-border-subtle)'}`,
+                            transition: 'background-color 0.12s ease, border-color 0.12s ease',
+                          }}
+                        >
+                          <Icon kind={rating.icon} filled={isLit} />
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{value}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 );
               })()}
@@ -870,9 +881,16 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
           <div />
         )}
 
-        <button type="submit" className="btn-primary" disabled={submitting || disabled}>
-          {submitting ? 'Submitting...' : isSubmitAction ? (mode === 'preview' ? 'Submit (Simulated)' : 'Submit') : 'Next →'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {onCancel && (
+            <button type="button" onClick={onCancel} className="btn-outline" disabled={submitting}>
+              Cancel
+            </button>
+          )}
+          <button type="submit" className="btn-primary" disabled={submitting || disabled}>
+            {submitting ? 'Submitting...' : isSubmitAction ? (mode === 'preview' ? 'Submit (Simulated)' : 'Submit') : 'Next →'}
+          </button>
+        </div>
       </div>
     </form>
   );

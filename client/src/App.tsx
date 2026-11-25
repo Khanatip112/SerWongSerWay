@@ -23,11 +23,25 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles?: strin
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ accessError: 'Please sign in to access that page.' }}
+      />
+    );
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/campaigns" replace />;
+    return (
+      <Navigate
+        to="/campaigns"
+        replace
+        state={{
+          accessError: `Access denied: ${user.role} accounts are not permitted to access that page.`,
+        }}
+      />
+    );
   }
 
   return <>{children}</>;
@@ -53,21 +67,7 @@ export const App: React.FC = () => {
       <AuthProvider>
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
           <Navbar />
-          <div
-          style={{
-              textAlign: 'center',
-              padding: '8px',
-              backgroundColor: '#EAF6EF',
-              color: '#006B3C',
-              fontSize: '14px',
-              fontWeight: 600,
-               }}
-              >
-                Release Demo v2 — Automatically Deployed
-              </div>
-
-              <main style={{ flex: 1, backgroundColor: 'var(--color-bg-page)' }}></main>
-          <main style={{ flex: 1, backgroundColor: 'var(--color-bg-page)' }}>
+          <main style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--color-bg-page)' }}>
             <Routes>
               <Route path="/" element={<RootRedirect />} />
               <Route path="/login" element={<LoginPage />} />
@@ -81,6 +81,14 @@ export const App: React.FC = () => {
               />
               <Route
                 path="/campaigns/new"
+                element={
+                  <ProtectedRoute allowedRoles={['CREATOR']}>
+                    <CreateCampaignPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/campaigns/:id/edit"
                 element={
                   <ProtectedRoute allowedRoles={['CREATOR']}>
                     <CreateCampaignPage />

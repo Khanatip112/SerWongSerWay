@@ -167,7 +167,7 @@ export async function main() {
       creatorId: creator1.id,
       title: 'Q4 Student Club Budget Proposal',
       description:
-        'Early outline for the Q4 student club budget request. Sections and questions will be added once the treasurer confirms the numbers.',
+        'Early outline for the Q4 student club budget request. Questions will be added once the treasurer confirms the numbers.',
       status: CampaignStatus.DRAFT,
       closesAt: null,
       createdAt: new Date('2026-11-21T08:30:00.000Z'),
@@ -183,7 +183,7 @@ export async function main() {
       description:
         'Internal draft used to validate the pastel design system before the survey is published to students.',
       status: CampaignStatus.DRAFT,
-      closesAt: null,
+      closesAt: futureClose,
       createdAt: new Date('2026-11-20T14:10:00.000Z'),
       sections: [
         {
@@ -206,51 +206,23 @@ export async function main() {
         {
           id: questionUuid(2, 2),
           sectionId: sectionUuid(2, 1),
-          prompt: 'Which accent colour works best?',
-          type: QuestionType.MULTIPLE_CHOICE,
+          prompt: 'How easy is it to read the card labels and badges?',
+          type: QuestionType.RATING_5,
           required: true,
           orderIndex: 1,
-          config: {
-            options: [
-              { id: 'opt-mint', label: 'Mint Breeze' },
-              { id: 'opt-blush', label: 'Blush Petal' },
-              { id: 'opt-lavender', label: 'Lavender Mist' },
-              { id: 'opt-sky', label: 'Sky Haze' },
-            ],
-          },
+          config: { rating: { maxRating: 5, icon: 'STAR' } },
         },
         {
           id: questionUuid(2, 3),
           sectionId: sectionUuid(2, 1),
-          prompt: 'What would you change about the typography?',
-          type: QuestionType.SHORT_ANSWER,
+          prompt: 'What would you change about the typography or spacing?',
+          type: QuestionType.TEXT,
           required: true,
           orderIndex: 2,
           config: {},
         },
       ],
-      contentBlocks: [
-        {
-          id: blockUuid(2, 1),
-          sectionId: sectionUuid(2, 1),
-          type: 'TEXT_BLOCK',
-          title: 'Draft notice',
-          description: 'This form is still a draft and is not visible to respondents.',
-          orderIndex: 0,
-        },
-        {
-          id: blockUuid(2, 2),
-          sectionId: sectionUuid(2, 1),
-          type: 'IMAGE_BLOCK',
-          title: 'Palette exploration',
-          config: {
-            imageUrl: 'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=1200&q=80',
-            alignment: 'center',
-            caption: 'Pastel palette exploration shared with the design team.',
-          },
-          orderIndex: 1,
-        },
-      ],
+      contentBlocks: [],
       submissions: [],
     },
     {
@@ -274,34 +246,19 @@ export async function main() {
         {
           id: questionUuid(3, 1),
           sectionId: sectionUuid(3, 1),
-          prompt: 'Which workshop slot works best for you?',
-          type: QuestionType.DROPDOWN,
+          prompt: 'How convenient are the proposed weekday morning workshop slots?',
+          type: QuestionType.RATING_5,
           required: true,
           orderIndex: 0,
-          config: {
-            options: [
-              { id: 'opt-slot-mon-am', label: 'Monday 09:00 - 11:00' },
-              { id: 'opt-slot-wed-pm', label: 'Wednesday 13:00 - 15:00' },
-              { id: 'opt-slot-fri-am', label: 'Friday 09:00 - 11:00' },
-            ],
-          },
+          config: { rating: { maxRating: 5, icon: 'STAR' } },
         },
         {
           id: questionUuid(3, 2),
           sectionId: sectionUuid(3, 1),
-          prompt: 'Which date can you attend?',
-          type: QuestionType.DATE,
-          required: true,
-          orderIndex: 1,
-          config: { date: { includeYear: true, includeTime: false } },
-        },
-        {
-          id: questionUuid(3, 3),
-          sectionId: sectionUuid(3, 1),
           prompt: 'Is there anything we should account for when planning the session?',
           type: QuestionType.TEXT,
           required: false,
-          orderIndex: 2,
+          orderIndex: 1,
           config: {},
         },
       ],
@@ -346,73 +303,23 @@ export async function main() {
         {
           id: questionUuid(4, 2),
           sectionId: sectionUuid(4, 1),
-          prompt: 'How would you describe the pace of the course?',
-          type: QuestionType.MULTIPLE_CHOICE,
-          required: false,
-          orderIndex: 1,
-          config: {
-            options: [
-              { id: 'opt-pace-slow', label: 'Too slow' },
-              { id: 'opt-pace-balanced', label: 'About right' },
-              { id: 'opt-pace-fast', label: 'Too fast' },
-            ],
-          },
-        },
-        {
-          id: questionUuid(4, 3),
-          sectionId: sectionUuid(4, 1),
-          prompt: 'Which topics did you find most engaging?',
-          type: QuestionType.CHECKBOXES,
-          required: false,
-          orderIndex: 2,
-          config: {
-            options: [
-              { id: 'opt-topic-labs', label: 'Hands-on labs' },
-              { id: 'opt-topic-projects', label: 'Team project' },
-              { id: 'opt-topic-theory', label: 'Theory lectures' },
-              { id: 'opt-topic-testing', label: 'Test-driven development' },
-            ],
-            checkboxValidation: { type: 'AT_LEAST', count: 1 },
-          },
-        },
-        {
-          id: questionUuid(4, 4),
-          sectionId: sectionUuid(4, 1),
           prompt: 'What is one thing we could improve?',
           type: QuestionType.TEXT,
           required: false,
-          orderIndex: 3,
-          config: {
-            textValidation: { category: 'LENGTH', operator: 'MAX_CHAR_COUNT', value: 500 },
-          },
+          orderIndex: 1,
+          config: {},
         },
         {
-          id: questionUuid(4, 5),
+          id: questionUuid(4, 3),
           sectionId: sectionUuid(4, 2),
           prompt: 'How useful were the lab sessions?',
-          type: QuestionType.LINEAR_SCALE,
+          type: QuestionType.RATING_5,
           required: false,
-          orderIndex: 4,
-          config: {
-            linearScale: {
-              min: 1,
-              max: 5,
-              minLabel: 'Not useful',
-              maxLabel: 'Very useful',
-            },
-          },
+          orderIndex: 2,
+          config: { rating: { maxRating: 5, icon: 'STAR' } },
         },
       ],
-      contentBlocks: [
-        {
-          id: blockUuid(4, 1),
-          sectionId: sectionUuid(4, 1),
-          type: 'TEXT_BLOCK',
-          title: 'About this survey',
-          description: 'This survey takes about three minutes and your answers are anonymous to classmates.',
-          orderIndex: 0,
-        },
-      ],
+      contentBlocks: [],
       submissions: [
         {
           id: submissionUuid(4, 1),
@@ -420,16 +327,11 @@ export async function main() {
           submittedAt: new Date('2026-11-18T10:15:00.000Z'),
           answers: [
             { questionId: questionUuid(4, 1), ratingValue: 5 },
-            { questionId: questionUuid(4, 2), jsonValue: { selectedOptionId: 'opt-pace-balanced' } },
             {
-              questionId: questionUuid(4, 3),
-              jsonValue: ['opt-topic-labs', 'opt-topic-projects'],
-            },
-            {
-              questionId: questionUuid(4, 4),
+              questionId: questionUuid(4, 2),
               textValue: 'More live coding demos in the lab sessions.',
             },
-            { questionId: questionUuid(4, 5), ratingValue: 5 },
+            { questionId: questionUuid(4, 3), ratingValue: 5 },
           ],
         },
         {
@@ -438,13 +340,11 @@ export async function main() {
           submittedAt: new Date('2026-11-19T16:40:00.000Z'),
           answers: [
             { questionId: questionUuid(4, 1), ratingValue: 4 },
-            { questionId: questionUuid(4, 2), jsonValue: { selectedOptionId: 'opt-pace-fast' } },
-            { questionId: questionUuid(4, 3), jsonValue: ['opt-topic-theory'] },
             {
-              questionId: questionUuid(4, 4),
+              questionId: questionUuid(4, 2),
               textValue: 'The assessment weighting could be explained earlier in the term.',
             },
-            { questionId: questionUuid(4, 5), ratingValue: 4 },
+            { questionId: questionUuid(4, 3), ratingValue: 4 },
           ],
         },
       ],
@@ -479,72 +379,14 @@ export async function main() {
         {
           id: questionUuid(5, 2),
           sectionId: sectionUuid(5, 1),
-          prompt: 'Which cloud provider does your team mainly use?',
-          type: QuestionType.DROPDOWN,
-          required: true,
-          orderIndex: 1,
-          config: {
-            options: [
-              { id: 'opt-cloud-aws', label: 'AWS' },
-              { id: 'opt-cloud-gcp', label: 'Google Cloud' },
-              { id: 'opt-cloud-azure', label: 'Azure' },
-              { id: 'opt-cloud-onprem', label: 'On-premises only' },
-            ],
-          },
-        },
-        {
-          id: questionUuid(5, 3),
-          sectionId: sectionUuid(5, 1),
-          prompt: 'Which tools do you use every day?',
-          type: QuestionType.CHECKBOXES,
-          required: false,
-          orderIndex: 2,
-          config: {
-            options: [
-              { id: 'opt-tool-vscode', label: 'VS Code' },
-              { id: 'opt-tool-docker', label: 'Docker' },
-              { id: 'opt-tool-k8s', label: 'Kubernetes' },
-              { id: 'opt-tool-terraform', label: 'Terraform' },
-              { id: 'opt-tool-actions', label: 'GitHub Actions' },
-            ],
-          },
-        },
-        {
-          id: questionUuid(5, 4),
-          sectionId: sectionUuid(5, 1),
           prompt: 'What is the biggest blocker when setting up a new environment?',
-          type: QuestionType.SHORT_ANSWER,
+          type: QuestionType.TEXT,
           required: false,
-          orderIndex: 3,
+          orderIndex: 1,
           config: {},
         },
-        {
-          id: questionUuid(5, 5),
-          sectionId: sectionUuid(5, 1),
-          prompt: 'Share your current setup notes (optional)',
-          type: QuestionType.FILE_UPLOAD,
-          required: false,
-          orderIndex: 4,
-          config: {
-            fileUpload: {
-              allowedTypesOnly: true,
-              allowedTypes: ['Document', 'PDF'],
-              maxFiles: 1,
-              maxFileSizeMb: 10,
-            },
-          },
-        },
       ],
-      contentBlocks: [
-        {
-          id: blockUuid(5, 1),
-          sectionId: sectionUuid(5, 1),
-          type: 'TEXT_BLOCK',
-          title: 'Why we ask',
-          description: 'Your answers shape the image we pre-build for the cloud lab machines.',
-          orderIndex: 0,
-        },
-      ],
+      contentBlocks: [],
       submissions: [],
     },
     {
@@ -578,47 +420,15 @@ export async function main() {
           type: QuestionType.RATING_5,
           required: true,
           orderIndex: 0,
-          config: { rating: { maxRating: 5, icon: 'HEART' } },
+          config: { rating: { maxRating: 5, icon: 'STAR' } },
         },
         {
           id: questionUuid(6, 2),
-          sectionId: sectionUuid(6, 1),
-          prompt: 'Which outlet do you visit most often?',
-          type: QuestionType.MULTIPLE_CHOICE,
-          required: true,
-          orderIndex: 1,
-          config: {
-            options: [
-              { id: 'opt-cafe-main', label: 'Main cafeteria' },
-              { id: 'opt-cafe-west', label: 'West campus kiosk' },
-              { id: 'opt-cafe-library', label: 'Library cafe' },
-              { id: 'opt-cafe-offcampus', label: 'Off-campus instead' },
-            ],
-          },
-        },
-        {
-          id: questionUuid(6, 3),
-          sectionId: sectionUuid(6, 2),
-          prompt: 'What influences your choice the most?',
-          type: QuestionType.CHECKBOXES,
-          required: false,
-          orderIndex: 2,
-          config: {
-            options: [
-              { id: 'opt-reason-taste', label: 'Taste' },
-              { id: 'opt-reason-price', label: 'Price' },
-              { id: 'opt-reason-speed', label: 'Speed of service' },
-              { id: 'opt-reason-variety', label: 'Variety' },
-            ],
-          },
-        },
-        {
-          id: questionUuid(6, 4),
           sectionId: sectionUuid(6, 2),
           prompt: 'What should the delivery pilot change?',
           type: QuestionType.TEXT,
           required: false,
-          orderIndex: 3,
+          orderIndex: 1,
           config: {},
         },
       ],
@@ -630,13 +440,8 @@ export async function main() {
           submittedAt: new Date('2026-11-17T12:05:00.000Z'),
           answers: [
             { questionId: questionUuid(6, 1), ratingValue: 4 },
-            { questionId: questionUuid(6, 2), jsonValue: { selectedOptionId: 'opt-cafe-west' } },
             {
-              questionId: questionUuid(6, 3),
-              jsonValue: ['opt-reason-taste', 'opt-reason-speed'],
-            },
-            {
-              questionId: questionUuid(6, 4),
+              questionId: questionUuid(6, 2),
               textValue: 'The delivery window is too wide; a 20-minute estimate would help.',
             },
           ],
@@ -648,30 +453,23 @@ export async function main() {
       creatorId: creator1.id,
       title: 'Annual Tech Conference & Track Registration',
       description:
-        'Register for a conference track, tell us which workshops interest you, and review the sessions you attended.',
+        'Share your interest in our conference tracks and review the sessions you attended.',
       status: CampaignStatus.PUBLISHED,
       closesAt: futureClose,
       createdAt: new Date('2026-11-06T13:00:00.000Z'),
       sections: [
         {
           id: sectionUuid(7, 1),
-          title: 'Registration & track selection',
-          description: 'Pick the track you plan to follow for the day.',
+          title: 'Conference overview',
+          description: 'Rate the overall conference schedule and track variety.',
           orderIndex: 0,
           nextAction: 'NEXT_SECTION',
         },
         {
           id: sectionUuid(7, 2),
-          title: 'Hands-on workshop preferences',
-          description: 'Only shown to attendees who chose the Cloud & DevOps track.',
-          orderIndex: 1,
-          nextAction: 'NEXT_SECTION',
-        },
-        {
-          id: sectionUuid(7, 3),
           title: 'Session feedback',
-          description: 'Which sessions did you attend, and what should we change?',
-          orderIndex: 2,
+          description: 'Tell us what we should keep or change for next year.',
+          orderIndex: 1,
           nextAction: 'SUBMIT_FORM',
         },
       ],
@@ -679,120 +477,32 @@ export async function main() {
         {
           id: questionUuid(7, 1),
           sectionId: sectionUuid(7, 1),
-          prompt: 'Which track will you attend?',
-          type: QuestionType.MULTIPLE_CHOICE,
+          prompt: 'How satisfied were you with the conference track lineup?',
+          type: QuestionType.RATING_5,
           required: true,
           orderIndex: 0,
-          config: {
-            goToSectionBasedOnAnswer: true,
-            options: [
-              {
-                id: 'opt-track-ai',
-                label: 'AI & Machine Learning',
-                targetSectionId: sectionUuid(7, 3),
-              },
-              {
-                id: 'opt-track-cloud',
-                label: 'Cloud & DevOps',
-                targetSectionId: sectionUuid(7, 2),
-              },
-              {
-                id: 'opt-track-keynote',
-                label: 'Keynotes only',
-                targetSectionId: 'SUBMIT_FORM',
-              },
-            ],
-          },
+          config: { rating: { maxRating: 5, icon: 'STAR' } },
         },
         {
           id: questionUuid(7, 2),
           sectionId: sectionUuid(7, 2),
-          prompt: 'How interested are you in each workshop?',
-          type: QuestionType.MULTIPLE_CHOICE_GRID,
-          required: true,
-          orderIndex: 1,
-          config: {
-            grid: {
-              rows: [
-                { id: 'row-k8s', label: 'Kubernetes deep dive' },
-                { id: 'row-iac', label: 'Infrastructure as Code' },
-                { id: 'row-observability', label: 'Observability' },
-              ],
-              columns: [
-                { id: 'col-low', label: 'Low' },
-                { id: 'col-medium', label: 'Medium' },
-                { id: 'col-high', label: 'High' },
-              ],
-              requireEachRow: true,
-              limitOnePerColumn: true,
-            },
-          },
-        },
-        {
-          id: questionUuid(7, 3),
-          sectionId: sectionUuid(7, 2),
-          prompt: 'Which workshop should we add next year?',
-          type: QuestionType.SHORT_ANSWER,
-          required: false,
-          orderIndex: 2,
-          config: {},
-        },
-        {
-          id: questionUuid(7, 4),
-          sectionId: sectionUuid(7, 3),
-          prompt: 'Which conference sessions did you attend?',
-          type: QuestionType.CHECKBOX_GRID,
-          required: true,
-          orderIndex: 3,
-          config: {
-            grid: {
-              rows: [
-                { id: 'row-keynote', label: 'Opening keynote' },
-                { id: 'row-ai-panel', label: 'AI research panel' },
-                { id: 'row-hallway', label: 'Networking hallway track' },
-              ],
-              columns: [{ id: 'col-attended', label: 'Attended' }],
-              requireEachRow: false,
-            },
-          },
-        },
-        {
-          id: questionUuid(7, 5),
-          sectionId: sectionUuid(7, 3),
           prompt: 'What should we change for next year?',
           type: QuestionType.TEXT,
           required: false,
-          orderIndex: 4,
+          orderIndex: 1,
           config: {},
         },
       ],
-      contentBlocks: [
-        {
-          id: blockUuid(7, 1),
-          sectionId: sectionUuid(7, 1),
-          type: 'TEXT_BLOCK',
-          title: 'How track selection works',
-          description:
-            'Choose a track and the form will skip directly to the sessions that matter to you.',
-          orderIndex: 0,
-        },
-      ],
+      contentBlocks: [],
       submissions: [
         {
           id: submissionUuid(7, 1),
           respondentId: respondent2.id,
           submittedAt: new Date('2026-11-22T09:30:00.000Z'),
           answers: [
-            { questionId: questionUuid(7, 1), jsonValue: { selectedOptionId: 'opt-track-ai' } },
+            { questionId: questionUuid(7, 1), ratingValue: 5 },
             {
-              questionId: questionUuid(7, 4),
-              jsonValue: {
-                'row-keynote': ['col-attended'],
-                'row-ai-panel': ['col-attended'],
-              },
-            },
-            {
-              questionId: questionUuid(7, 5),
+              questionId: questionUuid(7, 2),
               textValue: 'Add a second day for hands-on workshops.',
             },
           ],
@@ -831,25 +541,10 @@ export async function main() {
         {
           id: questionUuid(8, 2),
           sectionId: sectionUuid(8, 1),
-          prompt: 'Which part of orientation was most valuable?',
-          type: QuestionType.MULTIPLE_CHOICE,
-          required: true,
-          orderIndex: 1,
-          config: {
-            options: [
-              { id: 'opt-orient-tours', label: 'Campus tours' },
-              { id: 'opt-orient-talks', label: 'Department talks' },
-              { id: 'opt-orient-social', label: 'Social evening' },
-            ],
-          },
-        },
-        {
-          id: questionUuid(8, 3),
-          sectionId: sectionUuid(8, 1),
           prompt: 'Suggestions for future orientation sessions',
           type: QuestionType.TEXT,
           required: false,
-          orderIndex: 2,
+          orderIndex: 1,
           config: {},
         },
       ],
@@ -861,8 +556,7 @@ export async function main() {
           submittedAt: new Date('2026-08-29T15:20:00.000Z'),
           answers: [
             { questionId: questionUuid(8, 1), ratingValue: 5 },
-            { questionId: questionUuid(8, 2), jsonValue: { selectedOptionId: 'opt-orient-talks' } },
-            { questionId: questionUuid(8, 3), textValue: 'The lab tours were the highlight.' },
+            { questionId: questionUuid(8, 2), textValue: 'The lab tours were the highlight.' },
           ],
         },
         {
@@ -871,8 +565,7 @@ export async function main() {
           submittedAt: new Date('2026-08-30T10:00:00.000Z'),
           answers: [
             { questionId: questionUuid(8, 1), ratingValue: 4 },
-            { questionId: questionUuid(8, 2), jsonValue: { selectedOptionId: 'opt-orient-social' } },
-            { questionId: questionUuid(8, 3), textValue: 'More water stations next year.' },
+            { questionId: questionUuid(8, 2), textValue: 'More water stations next year.' },
           ],
         },
       ],
@@ -907,18 +600,11 @@ export async function main() {
         {
           id: questionUuid(9, 2),
           sectionId: sectionUuid(9, 1),
-          prompt: 'Rate the remote access experience',
-          type: QuestionType.LINEAR_SCALE,
+          prompt: 'How smooth was the remote access experience?',
+          type: QuestionType.RATING_5,
           required: true,
           orderIndex: 1,
-          config: {
-            linearScale: {
-              min: 1,
-              max: 5,
-              minLabel: 'Very poor',
-              maxLabel: 'Excellent',
-            },
-          },
+          config: { rating: { maxRating: 5, icon: 'STAR' } },
         },
         {
           id: questionUuid(9, 3),
@@ -968,17 +654,11 @@ export async function main() {
         {
           id: questionUuid(10, 1),
           sectionId: sectionUuid(10, 1),
-          prompt: 'Would you have joined the winter hackathon?',
-          type: QuestionType.MULTIPLE_CHOICE,
+          prompt: 'How interested were you in joining the winter hackathon?',
+          type: QuestionType.RATING_5,
           required: true,
           orderIndex: 0,
-          config: {
-            options: [
-              { id: 'opt-hack-yes', label: 'Yes, definitely' },
-              { id: 'opt-hack-maybe', label: 'Maybe, depending on the theme' },
-              { id: 'opt-hack-no', label: 'No' },
-            ],
-          },
+          config: { rating: { maxRating: 5, icon: 'STAR' } },
         },
         {
           id: questionUuid(10, 2),
