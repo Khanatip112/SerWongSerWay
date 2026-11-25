@@ -267,7 +267,7 @@ fi
 # 8. Optional Demo Password in Secret Manager when --demo is passed
 #    Only used to seed demo users (./deploy/deploy.sh --demo).
 # ==============================================================================
-JOB_SECRETS="DATABASE_URL=${SECRET_DB_URL}:latest,ADMIN_PASSWORD=${SECRET_ADMIN_PASS}:latest"
+JOB_SECRETS="DATABASE_URL=${SECRET_DB_URL}:latest,ADMIN_PASSWORD=${SECRET_ADMIN_PASS}:latest,CREATOR1_PASSWORD=serwongserway-creator1-pass:latest,CREATOR2_PASSWORD=serwongserway-creator2-pass:latest,RESPONDENT1_PASSWORD=serwongserway-respondent1-pass:latest,RESPONDENT2_PASSWORD=serwongserway-respondent2-pass:latest"
 if [ "$SEED_DEMO_DATA" = "true" ]; then
   if [ "$DRY_RUN" = "1" ]; then
     run_cmd gcloud secrets describe "$SECRET_DEMO_PASS" --project "$PROJECT_ID"
@@ -289,7 +289,33 @@ fi
 #    binding is added — keep access limited to this app's own secrets.
 # ------------------------------------------------------------------------------
 # Grant access only to this app's secrets, after they exist.
-RUNTIME_SECRETS=("$SECRET_DB_URL" "$SECRET_ADMIN_PASS")
+
+# สร้าง Secret อัตโนมัติเฉพาะกรณีที่ยังไม่มีใน Secret Manager (ไม่เขียนทับของเดิม)
+AUTO_GENERATED_SECRETS=(
+  "serwongserway-session-secret"
+  "serwongserway-creator1-pass"
+  "serwongserway-creator2-pass"
+  "serwongserway-respondent1-pass"
+  "serwongserway-respondent2-pass"
+)
+for secret in "${AUTO_GENERATED_SECRETS[@]}"; do
+  if [ "$DRY_RUN" = "1" ]; then
+    run_cmd gcloud secrets describe "$secret" --project "$PROJECT_ID"
+  else
+    if ! gcloud secrets describe "$secret" --project "$PROJECT_ID" >/dev/null 2>&1; then
+      RAND_VAL="$(openssl rand -hex 24)"
+      run_cmd gcloud secrets create "$secret" --replication-policy="automatic" --project "$PROJECT_ID"
+      printf "%s" "$RAND_VAL" | gcloud secrets versions add "$secret" --data-file=- --project "$PROJECT_ID"
+    fi
+  fi
+done
+
+RUNTIME_SECRETS=("$SECRET_DB_URL" "$SECRET_ADMIN_PASS" 
+  "serwongserway-session-secret"
+  "serwongserway-creator1-pass"
+  "serwongserway-creator2-pass"
+  "serwongserway-respondent1-pass"
+  "serwongserway-respondent2-pass")
 if [ "$SEED_DEMO_DATA" = "true" ]; then
   RUNTIME_SECRETS+=("$SECRET_DEMO_PASS")
 fi
@@ -325,7 +351,7 @@ run_cmd gcloud run jobs deploy "$MIGRATE_JOB_NAME" \
   --set-secrets "$JOB_SECRETS" \
   --set-env-vars "NODE_ENV=production,TZ=Asia/Bangkok,SEED_DEMO_DATA=${SEED_DEMO_DATA}" \
   --command "sh" \
-  --args "-c,npx prisma migrate deploy --schema=prisma/schema.prisma" \
+  --args "-c,npx prisma migrate deploy --schema=prisma/schema.prisma && npx prisma db seed" \
   --max-retries 1 \
   --task-timeout 300s \
   --project "$PROJECT_ID"
@@ -353,7 +379,7 @@ run_cmd gcloud run deploy "$SERVICE_NAME" \
   --allow-unauthenticated \
   --service-account "$SA_EMAIL" \
   --add-cloudsql-instances "$SQL_CONN_NAME" \
-  --set-secrets "DATABASE_URL=${SECRET_DB_URL}:latest" \
+  --set-secrets "DATABASE_URL=${SECRET_DB_URL}:latest,SESSION_SECRET=serwongserway-session-secret:latest" \
   --set-env-vars "NODE_ENV=production,TZ=Asia/Bangkok" \
   --min-instances 0 \
   --max-instances 3 \
@@ -377,9 +403,6 @@ printf '%s\n' "Deployment Completed!"
 printf '%s\n' "Service URL    : ${SERVICE_URL}"
 printf '%s\n' "Health Check   : ${SERVICE_URL}/api/health"
 printf '%s\n' "Readiness Check: ${SERVICE_URL}/api/ready"
-printf '%s\n' "Admin Email    : john.smith@example.com (mustChangePassword: true)"
-printf '%s\n' "Admin Password : Stored in Secret Manager: ${SECRET_ADMIN_PASS} (not printed)."
-if [ "$SEED_DEMO_DATA" = "true" ]; then
-  printf '%s\n' "Demo Password  : Stored in Secret Manager: ${SECRET_DEMO_PASS} (not printed)."
-fi
+printf '%s\n' "Seeded Accounts: james.and@gmail.com, william.tho@gmail.com, amelia.cla@gmail.com, daniel.rob@gmail.com"
+printf '%s\n' "Passwords      : Stored in Secret Manager (serwongserway-*-pass, not printed)."
 printf '%s\n' "=================================================================="

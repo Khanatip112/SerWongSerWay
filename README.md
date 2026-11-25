@@ -16,7 +16,7 @@ PastelPulse is a modern, web-based Review, Feedback, and Survey platform built w
 │   ├── nginx.conf              # SPA routing & API reverse proxy configuration
 │   └── package.json
 │
-├── server/                     # Backend (Node.js 20 + Express + TypeScript + Prisma + Zod)
+├── server/                     # Backend (Node.js 24 + Express + TypeScript + Prisma + Zod)
 │   ├── prisma/
 │   │   ├── schema.prisma       # Database models (User, Campaign, Question, Submission, Answer)
 │   │   └── seed.ts             # Deterministic seed data script
@@ -26,12 +26,13 @@ PastelPulse is a modern, web-based Review, Feedback, and Survey platform built w
 │   │   ├── routes/             # Health and readiness routes (/api/health, /api/ready)
 │   │   ├── app.ts              # Express application configuration
 │   │   └── index.ts            # Application server bootstrap
-│   ├── Dockerfile              # Server build & entrypoint
+│   ├── Dockerfile              # Server container build
 │   ├── docker-entrypoint.sh    # DB connection wait, schema push & auto-seed
 │   └── package.json
 │
 ├── docs/                       # Project specifications & SRS/SDS documentation
-├── docker-compose.yml          # Container orchestration (Postgres 16, backend, frontend)
+├── Dockerfile                  # Unified production container (API + built SPA on port 3000)
+├── docker-compose.yml          # Container orchestration (Postgres :5434, backend :3000, frontend :5173)
 ├── .env.example                # Root environment variables template
 └── package.json                # Monorepo workspaces definition
 ```
@@ -58,17 +59,6 @@ The client implements the cohesive high-contrast Pastel Pink palette defined in 
 
 ---
 
-## 👥 Seeded Synthetic Accounts
-
-Deterministic test accounts are automatically seeded into PostgreSQL via `server/prisma/seed.ts`:
-
-| Email | Role | Default Password | Primary Purpose |
-| :--- | :--- | :--- | :--- |
-| `creator1@example.com` | `CREATOR` | `Password123!` | Primary survey creator (owns sample campaigns) |
-| `creator2@example.com` | `CREATOR` | `Password123!` | Secondary creator (used to verify 403 ownership isolation) |
-| `respondent1@example.com` | `RESPONDENT` | `Password123!` | Primary survey participant (tests single submission) |
-| `respondent2@example.com` | `RESPONDENT` | `Password123!` | Secondary participant (tests multi-user submissions) |
-
 ### Sample Seeded Campaigns
 - **"CPE 334 Course Experience Survey"** (`status: PUBLISHED`): Active survey with 1-5 star rating and open-ended text questions.
 - **"Archived Orientation Feedback"** (`status: CLOSED`): Historical survey verifying `BR-02` submission rejection on closed campaigns.
@@ -77,7 +67,7 @@ Deterministic test accounts are automatically seeded into PostgreSQL via `server
 
 ## 🚀 Quickstart with Docker Compose
 
-Running via Docker Compose automatically launches PostgreSQL, applies Prisma schema migrations, seeds test accounts and sample campaigns, and serves both the client and server.
+Running via Docker Compose automatically launches PostgreSQL (host port `5434`), applies Prisma schema migrations, seeds test accounts and sample campaigns, and serves both the client (`5173`) and server (`3000`).
 
 1. **Clone and enter repository:**
    ```bash
@@ -96,11 +86,14 @@ Running via Docker Compose automatically launches PostgreSQL, applies Prisma sch
    docker-compose up --build
    ```
 
-4. **Access the applications:**
+4. **Access the applications (Docker Compose):**
    - **Frontend UI:** [http://localhost:5173](http://localhost:5173)
-   - **Backend API:** [http://localhost:4000](http://localhost:4000)
-   - **API Health:** [http://localhost:4000/api/health](http://localhost:4000/api/health)
-   - **Database Readiness:** [http://localhost:4000/api/ready](http://localhost:4000/api/ready)
+   - **Backend API:** [http://localhost:3000](http://localhost:3000)
+   - **API Health:** [http://localhost:3000/api/health](http://localhost:3000/api/health)
+   - **Database Readiness:** [http://localhost:3000/api/ready](http://localhost:3000/api/ready)
+   - **PostgreSQL (Host Port):** `localhost:5434`
+
+   > **Note (Production / Cloud Run Unified Image):** The root `Dockerfile` serves both the Express API and the built React SPA on **port `3000`** (`http://localhost:3000`).
 
 5. **Stop containers:**
    ```bash
@@ -114,9 +107,9 @@ Running via Docker Compose automatically launches PostgreSQL, applies Prisma sch
 ## 💻 Local Development Setup (Without Docker)
 
 ### Prerequisites
-- **Node.js**: v20 or higher
+- **Node.js**: v24 or higher
 - **npm**: v10 or higher
-- **PostgreSQL**: v16 running locally (or in Docker via `docker run --name pg -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=pastelpulse -d postgres:16-alpine`)
+- **PostgreSQL**: v16 running locally on port `5432` (or via Docker Compose DB on port `5434`: `docker compose up -d db`)
 
 ### 1. Install Dependencies
 ```bash
@@ -128,7 +121,7 @@ In `server/`:
 ```bash
 cp server/.env.example server/.env
 ```
-Ensure `DATABASE_URL` in `server/.env` matches your local PostgreSQL connection string:
+Ensure `DATABASE_URL` in `server/.env` matches your PostgreSQL connection string (`5432` for native local PostgreSQL, or `5434` when using `docker compose up -d db`):
 ```env
 PORT=4000
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/pastelpulse?schema=public
@@ -163,12 +156,12 @@ npm run client:dev
 
 ### Check API Health & Database Readiness
 ```bash
-# Process liveness probe
-curl -i http://localhost:4000/api/health
+# Process liveness probe (use :3000 for Docker Compose / Cloud Run, or :4000 for local server:dev)
+curl -i http://localhost:3000/api/health
 # Response: {"status":"ok"}
 
 # Database connectivity probe (executes SELECT 1)
-curl -i http://localhost:4000/api/ready
+curl -i http://localhost:3000/api/ready
 # Response: {"status":"ready","database":"connected"}
 ```
 
@@ -182,7 +175,7 @@ npm test
 
 ## 📋 Available Root NPM Scripts
 
-- `npm run server:dev` - Run server in watch mode with `tsx`.
+- `npm run server:dev` - Run server in watch mode with `tsx` on port `4000`.
 - `npm run server:build` - Compile server TypeScript to `dist/`.
 - `npm run client:dev` - Run Vite dev server on port `5173`.
 - `npm run client:build` - Type-check and build client production bundle.

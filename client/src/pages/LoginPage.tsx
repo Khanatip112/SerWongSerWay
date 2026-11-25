@@ -27,12 +27,6 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleQuickFill = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('Password123!');
-    setError('');
-  };
-
   return (
     <div
       style={{
@@ -111,61 +105,6 @@ export const LoginPage: React.FC = () => {
             {submitting ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-
-        <div
-          style={{
-            marginTop: '2rem',
-            paddingTop: '1.5rem',
-            borderTop: '1px solid var(--color-border-subtle)',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              color: 'var(--color-text-muted)',
-              marginBottom: '0.75rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-            }}
-          >
-            Quick Demo Logins
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn-pastel"
-              onClick={() => handleQuickFill('creator1@example.com')}
-              style={{ flex: '1 1 auto', fontSize: '0.825rem' }}
-            >
-              Creator 1 (Owner)
-            </button>
-            <button
-              type="button"
-              className="btn-pastel"
-              onClick={() => handleQuickFill('creator2@example.com')}
-              style={{ flex: '1 1 auto', fontSize: '0.825rem' }}
-            >
-              Creator 2
-            </button>
-            <button
-              type="button"
-              className="btn-pastel"
-              onClick={() => handleQuickFill('respondent1@example.com')}
-              style={{ flex: '1 1 auto', fontSize: '0.825rem' }}
-            >
-              Respondent 1
-            </button>
-            <button
-              type="button"
-              className="btn-pastel"
-              onClick={() => handleQuickFill('respondent2@example.com')}
-              style={{ flex: '1 1 auto', fontSize: '0.825rem' }}
-            >
-              Respondent 2
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
