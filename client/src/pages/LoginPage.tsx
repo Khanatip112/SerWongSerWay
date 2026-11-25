@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import Alert from '../components/Alert.js';
 
@@ -11,6 +11,15 @@ export const LoginPage: React.FC = () => {
 
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const state = location.state as { accessError?: string } | null;
+    if (state?.accessError) {
+      setError(state.accessError);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.pathname, location.state, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,16 +36,10 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleQuickFill = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('Password123!');
-    setError('');
-  };
-
   return (
     <div
       style={{
-        minHeight: 'calc(100vh - 70px)',
+        flex: 1,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -60,14 +63,14 @@ export const LoginPage: React.FC = () => {
               marginBottom: '0.5rem',
             }}
           >
-            Welcome to PastelPulse
+            Welcome to SerWongSerWay
           </h2>
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-            Sign in to access review surveys and feedback campaigns.
+            Sign in to access and manage surveys.
           </p>
         </div>
 
-        {error && <Alert type="error" message={error} />}
+        {error && <Alert type="error" message={error} onClose={() => setError('')} />}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -111,61 +114,6 @@ export const LoginPage: React.FC = () => {
             {submitting ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-
-        <div
-          style={{
-            marginTop: '2rem',
-            paddingTop: '1.5rem',
-            borderTop: '1px solid var(--color-border-subtle)',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              color: 'var(--color-text-muted)',
-              marginBottom: '0.75rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-            }}
-          >
-            Quick Demo Logins
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn-pastel"
-              onClick={() => handleQuickFill('creator1@example.com')}
-              style={{ flex: '1 1 auto', fontSize: '0.825rem' }}
-            >
-              Creator 1 (Owner)
-            </button>
-            <button
-              type="button"
-              className="btn-pastel"
-              onClick={() => handleQuickFill('creator2@example.com')}
-              style={{ flex: '1 1 auto', fontSize: '0.825rem' }}
-            >
-              Creator 2
-            </button>
-            <button
-              type="button"
-              className="btn-pastel"
-              onClick={() => handleQuickFill('respondent1@example.com')}
-              style={{ flex: '1 1 auto', fontSize: '0.825rem' }}
-            >
-              Respondent 1
-            </button>
-            <button
-              type="button"
-              className="btn-pastel"
-              onClick={() => handleQuickFill('respondent2@example.com')}
-              style={{ flex: '1 1 auto', fontSize: '0.825rem' }}
-            >
-              Respondent 2
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

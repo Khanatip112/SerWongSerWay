@@ -1,4 +1,4 @@
-"""Public deployment checks. Credentials/tokens are never printed.
+"""Public deployment checks. Credentials/cookies are never printed.
 
 WHAT THIS SCRIPT DOES
     Called by .github/workflows/deploy.yml after a deployment:
@@ -8,26 +8,18 @@ WHAT THIS SCRIPT DOES
     tolerate Cloud Run cold starts.
 
     Checks (in order)
-      1. GET /api/health      -> {"status": "ok"}
-      2. GET /api/ready       -> {"database": "connected"}
-      3. GET /                -> HTML page (the built React app is served)
-      4. GET /api/categories  -> non-empty list (migration + seed worked)
-      5. OPTIONAL login test  -> login, /api/auth/me, logout. Runs only if BOTH
-         env vars SMOKE_EMAIL and SMOKE_PASSWORD are set (set both or neither).
+1. GET /api/health      -> {"status": "ok"}
+2. GET /api/ready       -> {"database": "connected"}
+3. GET /                -> HTML page (the built React app is served)
+4. OPTIONAL login test  -> cookie-based auth (pastelpulse_session) via
+         POST /api/auth/login, GET /api/auth/me, GET /api/campaigns, and
+         POST /api/auth/logout. Runs only if BOTH env vars SMOKE_EMAIL and
+         SMOKE_PASSWORD are set (set both or neither).
          The session is always logged out, even if a check fails.
 
 IMPORTANT
     Uses only the Python standard library (no pip install needed).
     Offline unit tests: deploy/tests/test_smoke.py
-
-REFERENCES
-    - urllib.request : https://docs.python.org/3/library/urllib.request.html
-    - unittest.mock  : https://docs.python.org/3/library/unittest.mock.html
-
-CHANGE ME (groups using another tech stack):
-    - the endpoint paths and expected responses in check() below
-      (/api/health, /api/ready, /, /api/categories, /api/auth/*)
-    - the login/logout endpoints and the 'token' field of the login response
 """
 import json
 import os
@@ -39,17 +31,18 @@ import urllib.request
 
 # --- HTTP helper --------------------------------------------------------------
 # Returns the response body (bytes). Raises on HTTP errors / timeouts.
-def request(base, path, data=None, token=None):
+def request(base, path, data=None, opener=None):
     headers = {}
     if data is not None:
         headers['Content-Type'] = 'application/json'
-    if token:
-        headers['Authorization'] = 'Bearer ' + token
-    req = urllib.request.Request(base + path, headers=headers,
-        data=json.dumps(data).encode() if data is not None else None)
-    with urllib.request.urlopen(req, timeout=30) as response:
+    req = urllib.request.Request(
+        base + path,
+        headers=headers,
+        data=json.dumps(data).encode() if data is not None else None,
+    )
+    open_fn = opener.open if opener is not None else urllib.request.urlopen
+    with open_fn(req, timeout=30) as response:
         return response.read()
-
 
 
 def check(base):
@@ -72,7 +65,7 @@ def check(base):
 
         print('PASS ' + path)
 
-    # --- Optional authenticated checks ---
+    # --- Optional authenticated checks (cookie-based: pastelpulse_session) ---
     email = os.getenv('SMOKE_EMAIL')
     password = os.getenv('SMOKE_PASSWORD')
 
@@ -85,22 +78,27 @@ def check(base):
         print('SKIP login: optional smoke credentials not configured')
         return
 
-    token = None
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
+    logged_in = False
     try:
-        login = json.loads(
-            request(base, '/api/auth/login',
-                    {'email': email, 'password': password})
+        request(
+            base,
+            '/api/auth/login',
+            {'email': email, 'password': password},
+            opener=opener,
         )
-        token = login['token']
+        logged_in = True
 
-        request(base, '/api/auth/me', token=token)
+        request(base, '/api/auth/me', opener=opener)
         print('PASS login and authenticated /api/auth/me')
 
         campaigns = json.loads(
-            request(base, '/api/campaigns', token=token)
+            request(base, '/api/campaigns', opener=opener)
         )
-
-        if not isinstance(campaigns.get('data'), list):
+        if not (
+            isinstance(campaigns, list)
+            or (isinstance(campaigns, dict) and isinstance(campaigns.get('data'), list))
+        ):
             raise ValueError('Unexpected campaigns response')
 
         print('PASS authenticated /api/campaigns')
@@ -109,8 +107,8 @@ def check(base):
         raise RuntimeError('Authenticated smoke check failed') from None
 
     finally:
-        if token:
-            request(base, '/api/auth/logout', data={}, token=token)
+        if logged_in:
+            request(base, '/api/auth/logout', data={}, opener=opener)
             print('PASS logout')
 
 
