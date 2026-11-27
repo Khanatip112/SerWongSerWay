@@ -6,8 +6,7 @@
 open.** A later valid submission replaces the answer set on the existing
 submission record; it does not create another record.
 
-**Status:** Selected for the proposed engineering contract; not implemented.
-Teammate review feedback has not yet been received.
+**Status:** Teammate-approved in PR #37; not implemented.
 
 ## Repository evidence and baseline
 
@@ -93,5 +92,9 @@ document path.
 ## Review status
 
 A second-member checklist is prepared in
-[impact-analysis.md](./impact-analysis.md). No reviewer feedback or approval
-has been received or recorded yet. No instructor/TA approval gate is added.
+[impact-analysis.md](./impact-analysis.md). PR #37 was approved by
+`Khanatip112` (GitHub ID `121042521`) on head commit
+`bbf59890b5e6fcd85b062453f9dae4ae505a6ad2`; the reviewed diff includes this
+maintenance change and engineering contract. The review said, “Everything look
+goog JK u can merge.” There were no inline review threads. No instructor/TA
+approval gate is added.

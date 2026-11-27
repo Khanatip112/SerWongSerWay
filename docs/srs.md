@@ -101,6 +101,7 @@ campaign invariant but replaces the duplicate-rejection outcome with the
 in-place revision behavior in `FR-11` and `BR-06`. Revisions are limited to
 campaigns still open under `BR-02`; answer history is not retained.
 
-This amendment is a proposed engineering contract, not an implementation or
-test result. Teammate review is pending. The original Sprint 1 wording above
-remains part of the baseline history.
+This amendment is a reviewed engineering contract, not an implementation or
+test result. Teammate approval is recorded in PR #37 on commit
+`bbf59890b5e6fcd85b062453f9dae4ae505a6ad2`. The original Sprint 1 wording
+above remains part of the baseline history.

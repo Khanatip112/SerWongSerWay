@@ -150,9 +150,6 @@ export const RespondPage: React.FC = () => {
         const body = await res.json();
         if (res.ok) {
           setCampaign(body.data);
-          if (body.data.hasSubmitted) {
-            setError('You have already submitted a response to this survey.');
-          }
         } else if (res.status === 403 || res.status === 404) {
           navigate('/campaigns', {
             replace: true,
@@ -190,7 +187,11 @@ export const RespondPage: React.FC = () => {
 
       const body = await res.json();
       if (res.ok) {
-        setSuccess('Your response has been submitted successfully! Thank you for your feedback.');
+        setSuccess(
+          body.data?.updated
+            ? 'Your response has been updated successfully. Thank you for your feedback.'
+            : 'Your response has been submitted successfully! Thank you for your feedback.'
+        );
         return true;
       }
       setError(body.error?.message || 'Failed to submit response.');
@@ -243,6 +244,9 @@ export const RespondPage: React.FC = () => {
       answerByQuestionId.set(ans.questionId, ans);
     }
   });
+  const isCampaignOpen =
+    campaign.status === 'PUBLISHED' &&
+    (!campaign.closesAt || new Date(campaign.closesAt).getTime() > Date.now());
 
   return (
     <div className="container" style={{ width: '100%', maxWidth: '720px', boxSizing: 'border-box' }}>
@@ -272,13 +276,15 @@ export const RespondPage: React.FC = () => {
         {success ? (
           <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
             <p style={{ marginBottom: '1.5rem', color: 'var(--color-text-primary)' }}>
-              Your feedback has been recorded in the database.
+              {campaign.hasSubmitted
+                ? 'Your revised response has been saved.'
+                : 'Your feedback has been recorded in the database.'}
             </p>
             <Link to="/campaigns" className="btn-primary">
               Browse More Surveys
             </Link>
           </div>
-        ) : campaign.hasSubmitted ? (
+        ) : campaign.hasSubmitted && !isCampaignOpen ? (
           <div>
             <div
               style={{
@@ -354,14 +360,42 @@ export const RespondPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          <FormRenderer
-            campaign={campaign}
-            mode="live"
-            onSubmit={handleFormSubmit}
-            onCancel={() => navigate('/campaigns')}
-            submitting={submitting}
-            externalError={error}
-          />
+          <>
+            {campaign.hasSubmitted && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '1rem',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                }}
+              >
+                <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+                  Revise Your Responses
+                </h2>
+                {campaign.mySubmission?.submittedAt && (
+                  <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                    Last submitted on{' '}
+                    {new Date(campaign.mySubmission.submittedAt).toLocaleString(undefined, {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}
+                  </span>
+                )}
+              </div>
+            )}
+            <FormRenderer
+              campaign={campaign}
+              mode="live"
+              onSubmit={handleFormSubmit}
+              onCancel={() => navigate('/campaigns')}
+              submitting={submitting}
+              externalError={error}
+              initialAnswers={campaign.hasSubmitted ? campaign.mySubmission?.answers : undefined}
+            />
+          </>
         )}
       </div>
     </div>

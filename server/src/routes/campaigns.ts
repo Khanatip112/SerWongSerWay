@@ -731,7 +731,7 @@ router.post(
       return;
     }
 
-    // 3. Enforce BR-01 application-level check: duplicate prevention
+    // 3. Find this respondent's existing submission, if any.
     const existingSubmission = await prisma.submission.findUnique({
       where: {
         campaignId_respondentId: {
@@ -740,16 +740,6 @@ router.post(
         },
       },
     });
-
-    if (existingSubmission) {
-      res.status(409).json({
-        error: {
-          code: 'DUPLICATE_SUBMISSION',
-          message: 'You have already submitted a response to this campaign.',
-        },
-      });
-      return;
-    }
 
     // 4. Validate payload format
     const parseResult = submitAnswersSchema.safeParse(req.body);
@@ -812,43 +802,58 @@ router.post(
 
     const validQuestionIds = new Set(questionsToValidate.map((question) => question.id));
     const answersToPersist = answers.filter((answer) => validQuestionIds.has(answer.questionId));
+    const answerData = answersToPersist.map((answer) => {
+      const question = questionMap.get(answer.questionId)!;
+      const ratingValue =
+        RATING_TYPES.includes(question.type) && typeof answer.ratingValue === 'number'
+          ? answer.ratingValue
+          : null;
+      const jsonValue =
+        answer.jsonValue === undefined || answer.jsonValue === null
+          ? Prisma.JsonNull
+          : (answer.jsonValue as Prisma.InputJsonValue);
+
+      return {
+        questionId: answer.questionId,
+        ratingValue,
+        textValue: answer.textValue ?? null,
+        jsonValue,
+      };
+    });
 
     // 6. Persist Submission and Answers atomically in PostgreSQL
     try {
-      const submission = await prisma.$transaction(async (tx) => {
-        return tx.submission.create({
+      const result = await prisma.$transaction(async (tx) => {
+        if (existingSubmission) {
+          const submission = await tx.submission.update({
+            where: { id: existingSubmission.id },
+            data: {
+              submittedAt: new Date(),
+              answers: {
+                deleteMany: {},
+                create: answerData,
+              },
+            },
+          });
+          return { submission, updated: true };
+        }
+
+        const submission = await tx.submission.create({
           data: {
             campaignId: campaign.id,
             respondentId: user.id,
-            answers: {
-              create: answersToPersist.map((answer) => {
-                const question = questionMap.get(answer.questionId)!;
-                const ratingValue =
-                  RATING_TYPES.includes(question.type) && typeof answer.ratingValue === 'number'
-                    ? answer.ratingValue
-                    : null;
-                const jsonValue =
-                  answer.jsonValue === undefined || answer.jsonValue === null
-                    ? Prisma.JsonNull
-                    : (answer.jsonValue as Prisma.InputJsonValue);
-
-                return {
-                  questionId: answer.questionId,
-                  ratingValue,
-                  textValue: answer.textValue ?? null,
-                  jsonValue,
-                };
-              }),
-            },
+            answers: { create: answerData },
           },
         });
+        return { submission, updated: false };
       });
 
-      res.status(201).json({
+      res.status(result.updated ? 200 : 201).json({
         data: {
-          submissionId: submission.id,
-          campaignId: submission.campaignId,
-          submittedAt: submission.submittedAt,
+          submissionId: result.submission.id,
+          campaignId: result.submission.campaignId,
+          submittedAt: result.submission.submittedAt,
+          ...(result.updated ? { updated: true } : {}),
         },
       });
     } catch (error) {
