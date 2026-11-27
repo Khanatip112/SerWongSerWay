@@ -3,13 +3,15 @@
 ## Targeted tests
 
 - **Pre-change application SHA:** `1412fdae4dc487bdfd81c9e93f985252fd0d1cf3`
-- **HEAD at test run:** `1412fdae4dc487bdfd81c9e93f985252fd0d1cf3`; implementation and test changes were in the worktree.
+- **Tested implementation commit SHA:** `203465aade8afdbd26cfd5c2a209fd7c5c30644d`
 - **Test file:** `server/src/test/sprint1.test.ts`
 - **Test IDs:** TEST-13 and TEST-14 (AC-13/AC-14, FR-11, BR-02/BR-03/BR-06)
 - **Command (same as RED):** `npm test --workspace=server -- --reporter=verbose -t "TEST-13|TEST-14"`
 - **Database:** Same disposable PostgreSQL 16 test database on `localhost:5433`.
 
-The four selected tests passed without changing the assertions from the RED run:
+After committing the implementation, the exact targeted command was rerun
+against the tested implementation commit. The four selected tests passed
+without changing the assertions from the RED run:
 
 ```text
 ✓ TEST-13 ... should replace answers, keep one submission, and update the submitted time
