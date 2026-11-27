@@ -58,7 +58,7 @@
 ---
 
 ## Contract 3: `F-03` Feedback & Survey Submission
-- **Linked Requirements:** `FR-05`, `BR-01`, `BR-02`, `BR-03`, `NFR-03`
+- **Linked Requirements:** `FR-05`, `BR-01`, `BR-02`, `BR-03`, `NFR-03`; proposed Lab 7 amendment `FR-11` / `BR-06`
 - **Dependencies:** `F-01`, `F-02`, PostgreSQL `Submission` and `Answer` tables.
 
 ### API & Domain Rule Specification
@@ -70,18 +70,30 @@
              { "questionId": "q-uuid-2", "textValue": "Very clear instructions!" }
            ]
          }
-   - Execution Order & Guards:
+   - Execution Order & Guards (current Lab 7 proposal):
      1. Verify `req.user.role === "RESPONDENT"` (else `403 Forbidden`).
      2. Fetch campaign by `:id` (if missing -> `404 Not Found`).
      3. Check `campaign.status === "PUBLISHED"` and (`campaign.closesAt === null` or `campaign.closesAt > now()`) (else `422 Unprocessable Entity`, code `CAMPAIGN_NOT_OPEN` — enforces `BR-02`).
-     4. Validate every required question has a valid answer and every `RATING_5` answer is an integer `1 <= ratingValue <= 5` (else `400 Bad Request` — enforces `BR-03`).
-     5. Insert `Submission` and `Answer` rows atomically. If unique constraint `(campaignId, respondentId)` is violated, catch Prisma `P2002` and return `409 Conflict`, code `DUPLICATE_SUBMISSION` — enforces `BR-01`.
-   - Success (`201 Created`): Returns `{ "data": { "submissionId": "uuid", "campaignId": "uuid", "submittedAt": "..." } }`.
+     4. Validate payload shape, question membership, required answers, and rating bounds before any data mutation (else `400 Bad Request` — enforces `BR-03`).
+     5. If the respondent has no submission, insert the `Submission` and `Answer` rows atomically and return `201 Created`.
+     6. If a submission exists, atomically update its `submittedAt` and replace its `Answer` rows; retain its ID and return `200 OK` with `updated: true` (enforces proposed `BR-06`).
+     7. Preserve the unique constraint `(campaignId, respondentId)`. A concurrent write conflict returns `409 Conflict`, code `SUBMISSION_CONFLICT`, without creating a second row or leaving partially replaced answers.
+   - First-submit success (`201 Created`): Returns `{ "data": { "submissionId": "uuid", "campaignId": "uuid", "submittedAt": "..."} }`.
+   - Revision success (`200 OK`): Returns `{ "data": { "submissionId": "uuid", "campaignId": "uuid", "submittedAt": "...", "updated": true } }`.
 
 ### Acceptance Criteria (`F-03`)
 - **AC-07 (Valid Submission Persistence):** An authenticated `RESPONDENT` submitting valid answers to an open `PUBLISHED` campaign receives HTTP `201`, and the `Submission` and `Answer` records are durably stored in PostgreSQL.
-- **AC-08 (Reject Duplicate Submission — `BR-01`):** When the same `RESPONDENT` submits a second response to a campaign they already submitted to, the API rejects the request with HTTP `409 Conflict` (`DUPLICATE_SUBMISSION`) and stores no second `Submission` record.
+- **AC-08 (Sprint 1 baseline — `BR-01`):** In the accepted Sprint 1 baseline, when the same `RESPONDENT` submits a second response to a campaign they already submitted to, the API rejects the request with HTTP `409 Conflict` (`DUPLICATE_SUBMISSION`) and stores no second `Submission` record. The duplicate-rejection outcome is superseded for the Lab 7 maintenance contract by BR-06 and AC-13/AC-14; the one-record invariant remains.
 - **AC-09 (Reject Closed Campaign & Out-of-Range Rating — `BR-02`, `BR-03`):** Submitting to a `CLOSED` campaign returns HTTP `422 Unprocessable Entity`; submitting a rating of `0` or `6` returns HTTP `400 Bad Request`.
+
+### Lab 7 Maintenance Amendment — Existing Submission Revision
+
+The following criteria amend the current F-03 contract without changing the
+accepted Sprint 1 baseline history. They are specified before implementation;
+TEST-13 and TEST-14 are planned, not executed.
+
+- **AC-13 (Revise Existing Response — `FR-11`, `BR-06`):** A valid first response continues to return `201 Created`. When the same authenticated `RESPONDENT` submits a second valid answer set to the same open `PUBLISHED` campaign, the API returns `200 OK` with `updated: true`, the same `submissionId`, and a later `submittedAt`. PostgreSQL contains exactly one submission record for that respondent/campaign, and its persisted answers are exactly the replacement answer set (no stale answers remain).
+- **AC-14 (Revision Guards and Atomicity — `BR-02`, `BR-03`, `BR-06`):** An invalid replacement answer set returns `400 Bad Request` and leaves the existing submission timestamp and answers unchanged. A revision attempt after the campaign is `CLOSED` or its deadline has elapsed returns `422 Unprocessable Entity` (`CAMPAIGN_NOT_OPEN`) and leaves the existing response unchanged. An unauthenticated caller receives `401`; an authenticated non-`RESPONDENT` receives `403`. A concurrent write conflict returns `409 SUBMISSION_CONFLICT` and leaves one complete committed answer set.
 
 ---
 
