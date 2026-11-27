@@ -4,6 +4,11 @@ import { z } from 'zod';
 // Load environment variables from .env file
 dotenv.config();
 
+// 1. บังคับเช็กทันทีหากเป็น Production และไม่ได้ตั้งค่า SESSION_SECRET
+if (process.env.NODE_ENV === 'production' && !process.env.SESSION_SECRET) {
+  throw new Error('FATAL: SESSION_SECRET must be set in production');
+}
+
 const envSchema = z.object({
   PORT: z
     .string()
@@ -12,9 +17,15 @@ const envSchema = z.object({
   DATABASE_URL: z
     .string()
     .default('postgresql://postgres:postgres@localhost:5432/pastelpulse?schema=public'),
+  // 2. กำหนดค่า fallback เฉพาะตอนที่ไม่ใช่ production (เช่น development / test)
   SESSION_SECRET: z
     .string()
-    .default('pastelpulse_default_development_secret_key_12345'),
+    .min(1)
+    .default(
+      process.env.NODE_ENV === 'production'
+        ? ''
+        : 'pastelpulse_default_development_secret_key_12345'
+    ),
   CLIENT_ORIGIN: z
     .string()
     .default('http://localhost:5173'),

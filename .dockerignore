@@ -1,7 +1,11 @@
+.aiignore
+
 **/node_modules
 **/dist
 **/build
 **/.env
+**/.env.*
+!**/.env.example
 *.log
 .git
 .gitignore
@@ -11,3 +15,14 @@ server/uploads
 *.db
 *.sqlite
 gha-creds-*.json
+*.key
+*.pem
+*credentials*.json
+
+
+__pycache__/
+*.pyc
+*.backup
+*.p12
+*.pfx
+*service-account*.json
