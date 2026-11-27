@@ -29,7 +29,7 @@ Organizations, event organizers, and academic clubs frequently collect structure
 - Role-based access control (RBAC) and record-level ownership enforcement on the backend API.
 - Creation and lifecycle management (`DRAFT`, `PUBLISHED`, `CLOSED`) of Review & Survey campaigns.
 - Support for structured questions (1–5 star rating, single-choice, and open-ended text feedback).
-- Submission of responses with strict duplicate prevention and status/deadline validation.
+- Submission of responses with one persisted response per respondent/campaign, revisable while the campaign remains open, and status/deadline validation.
 - Creator analytics dashboard showing response counts, average ratings, and individual feedback entries.
 
 ### 3.2 Explicit Exclusions (Out of Scope)
@@ -54,17 +54,19 @@ Organizations, event organizers, and academic clubs frequently collect structure
 | **FR-08** | Edit Draft Campaign | A `CREATOR` can update the title, description, or questions of their own campaign while its status is `DRAFT`. | Sprint 2 |
 | **FR-09** | Filter & Search Feedback Results | A `CREATOR` can filter submissions on their campaign by rating score (e.g., 1–5 stars) or keyword search within text comments. | Sprint 3 |
 | **FR-10** | Export Campaign Summary (CSV) | A `CREATOR` can export the responses of their owned campaign as a downloadable CSV report. | Sprint 3 |
+| **FR-11** | Revise Existing Feedback Submission | An authenticated `RESPONDENT` can revise their existing answers to a `PUBLISHED` campaign while it remains open; the latest valid answers replace the saved answers without creating another submission record. | Lab 7 maintenance amendment to Sprint 1 |
 
 ---
 
 ## 5. Business Rules (BR)
 | ID | Rule Name | Domain Constraint & Rejection Behavior | Target Sprint |
 | :--- | :--- | :--- | :--- |
-| **BR-01** | One Submission Per Respondent Per Campaign | A `RESPONDENT` cannot submit more than one response to the same campaign. Any duplicate submission attempt must be rejected with HTTP `409 Conflict` without creating a second record. | Sprint 1 |
+| **BR-01** | One Submission Record Per Respondent Per Campaign | At most one `Submission` record may exist for a given campaign and respondent. A first valid submission creates the record; subsequent valid submissions while the campaign is open follow `BR-06` and update that record. | Sprint 1 baseline; amended by BR-06 |
 | **BR-02** | Campaign Must Be Open (`PUBLISHED`) to Accept Responses | Submissions are accepted only when the target campaign status is `PUBLISHED` and the current server UTC time is strictly earlier than `closesAt` (if set). Attempts to submit to `DRAFT` or `CLOSED` campaigns must be rejected with HTTP `422 Unprocessable Entity`. | Sprint 1 |
 | **BR-03** | Valid Rating Scale & Required Fields | Every rating answer must be an integer between `1` and `5` inclusive, and every required question must have a non-empty answer. Invalid payloads must be rejected with HTTP `400 Bad Request`. | Sprint 1 |
 | **BR-04** | Strict Creator Ownership on Results & Mutations | Only the `CREATOR` whose `userId` matches `campaign.creatorId` may view detailed campaign submissions, update the campaign, or close it. Requests from any other `CREATOR` or `RESPONDENT` must be rejected with HTTP `403 Forbidden`. | Sprint 1 |
 | **BR-05** | Immutable Questions After First Submission | Once a campaign has at least one recorded submission, its question definitions cannot be modified or deleted, preserving historical answer integrity (HTTP `409 Conflict`). | Sprint 2 |
+| **BR-06** | Revise Existing Submission While Open | An authenticated `RESPONDENT` may submit a valid replacement answer set for their existing submission while the campaign is `PUBLISHED` and not past its deadline. The server atomically replaces that submission's answers, retains its ID, updates `submittedAt` to the latest successful submission time, and returns HTTP `200 OK`. It must not create another submission record. | Lab 7 maintenance amendment to Sprint 1 |
 
 ---
 
@@ -82,5 +84,23 @@ Organizations, event organizers, and academic clubs frequently collect structure
 ## 7. Assumptions & Design Decisions
 1. **Seeded Accounts Strategy:** Per Deliverable 1 guidelines, deterministic seed scripts create test `CREATOR` and `RESPONDENT` accounts so local grading and automated tests run reproducibly without manual sign-up.
 2. **Database-Backed / Stateless JWT HttpOnly Cookie Auth:** Authentication uses signed JWTs stored in `HttpOnly`, `SameSite=Lax` cookies. This avoids in-memory server session storage, ensuring seamless horizontal scaling and container restarts on Google Cloud Run in Lab 5.
-3. **Database-Level Uniqueness:** In addition to application-layer checks, `BR-01` is enforced at the PostgreSQL schema level via a composite unique constraint `@@unique([campaignId, respondentId])` on the `Submission` table to prevent race-condition duplicates.
+3. **Database-Level Uniqueness:** `BR-01` is enforced at the PostgreSQL schema level via a composite unique constraint `@@unique([campaignId, respondentId])` on the `Submission` table. Revisions update the existing row under `BR-06`; the constraint continues to prevent multiple rows for the same respondent and campaign.
 4. **Pastel Pink UI Theme:** User preference specifies `#fadadd` (Pastel Pink) as the primary brand accent, paired with high-contrast `#1a1a1a` (charcoal black) typography, `#ffffff` (pure white) surfaces/cards/tabs, `#dc2626` (crimson red) error states, and `#16a34a` (emerald green) success states.
+
+## 8. Requirement History and Lab 7 Amendment
+
+The accepted Sprint 1 baseline requirement was:
+
+> **BR-01 (original):** A `RESPONDENT` cannot submit more than one response to
+> the same campaign. Any duplicate submission attempt must be rejected with
+> HTTP `409 Conflict` without creating a second record.
+
+The Sprint 1 implementation and TEST-08 implemented and verified that rule.
+This Lab 7 maintenance amendment preserves its one-record-per-respondent /
+campaign invariant but replaces the duplicate-rejection outcome with the
+in-place revision behavior in `FR-11` and `BR-06`. Revisions are limited to
+campaigns still open under `BR-02`; answer history is not retained.
+
+This amendment is a proposed engineering contract, not an implementation or
+test result. Teammate review is pending. The original Sprint 1 wording above
+remains part of the baseline history.

@@ -20,8 +20,8 @@
     +-------------------+                                 +--------------------+                              +------------------+
 
 - **React Client:** Renders views, enforces client-side input feedback, and displays Loading, Empty, and Error states. Never trusted for authorization or business rule enforcement.
-- **Express REST API:** Verifies `HttpOnly` JWT session cookies, enforces role permissions (`CREATOR` vs. `RESPONDENT`) and ownership rules (`BR-04`), validates input payloads via Zod (`BR-03`), and executes transactional business logic (`BR-01`, `BR-02`).
-- **PostgreSQL 16:** Persists users, campaigns, questions, submissions, and answers. Enforces relational integrity (`ON DELETE CASCADE`) and composite uniqueness (`@@unique([campaignId, respondentId])`).
+- **Express REST API:** Verifies `HttpOnly` JWT session cookies, enforces role permissions (`CREATOR` vs. `RESPONDENT`) and ownership rules (`BR-04`), validates input payloads via Zod (`BR-03`), and executes transactional business logic (`BR-01`, `BR-02`, and the proposed `BR-06` revision rule).
+- **PostgreSQL 16:** Persists users, campaigns, questions, submissions, and answers. Enforces relational integrity (`ON DELETE CASCADE`) and composite uniqueness (`@@unique([campaignId, respondentId])`); revisions replace answers under the existing submission row.
 
 ---
 
@@ -60,14 +60,15 @@
    - `id` (String, UUID, PK)
    - `campaignId` (String, FK -> `Campaign.id`, Not Null)
    - `respondentId` (String, FK -> `User.id`, Not Null)
-   - `submittedAt` (DateTime, Default `now()`)
-   - **Constraint:** `@@unique([campaignId, respondentId])` — *Enforces BR-01 at DB level*
+   - `submittedAt` (DateTime, Default `now()`; under proposed BR-06, updated on each successful revision)
+   - **Constraint:** `@@unique([campaignId, respondentId])` — *Enforces the one-record invariant in BR-01*
 5. **`Answer`**
    - `id` (String, UUID, PK)
    - `submissionId` (String, FK -> `Submission.id`, Not Null)
    - `questionId` (String, FK -> `Question.id`, Not Null)
    - `ratingValue` (Int, Nullable — must be `1..5` when `Question.type == RATING_5`)
    - `textValue` (String, Nullable)
+   - **Revision semantics (proposed):** Answers belong to the single current response. A successful revision atomically replaces the previous answer set; older answer versions are not retained.
 
 ### 2.3 Migrations & Reproducible Seed Data
 - Schema changes are tracked via `prisma migrate dev` (and `prisma migrate deploy` in production).
@@ -104,7 +105,7 @@ The application implements a cohesive, high-contrast **Pastel Pink (`#fadadd`)**
   1. `/login`: Centered white card (`#ffffff`) on `#fdf6f7` background with `#fadadd` header accent; email/password form and inline red error banner (`#dc2626`).
   2. `/campaigns`: Role-adaptive dashboard. Displays white tab navigation (`All Open Surveys` / `My Campaigns` / `+ Create Campaign`) highlighted with `#fadadd` active tab indicators.
   3. `/campaigns/new` (`CREATOR` only): Form builder to add campaign metadata and dynamic rating/text questions.
-  4. `/campaigns/:id/respond` (`RESPONDENT` view): Clean white survey card displaying 1–5 star interactive buttons and text inputs.
+  4. `/campaigns/:id/respond` (`RESPONDENT` view): Clean white survey card displaying 1–5 star interactive buttons and text inputs. Under proposed FR-11/BR-06, an existing respondent can edit their saved answers while the campaign remains open.
   5. `/campaigns/:id/results` (`CREATOR` owner view): Summary KPI cards (Total Responses, Average Rating) and itemized feedback table on white surfaces.
 - **Mandatory UI States:**
   - **Validation State:** Inline `#dc2626` error text directly beneath invalid fields plus a top alert summary when API returns `400`, `409`, or `422`.
@@ -122,7 +123,7 @@ The application implements a cohesive, high-contrast **Pastel Pink (`#fadadd`)**
 - Standard Success Envelope: `{ "data": <payload> }`
 - Standard Error Envelope (no stack traces leaked):
   `{ "error": { "code": "ERROR_CODE", "message": "Human-readable explanation", "details": [] } }`
-- Standard HTTP Status Codes: `200 OK`, `201 Created`, `400 Bad Request` (validation), `401 Unauthorized` (unauthenticated), `403 Forbidden` (role/ownership denied), `404 Not Found`, `409 Conflict` (duplicate submission), `422 Unprocessable Entity` (closed campaign rule).
+- Standard HTTP Status Codes: `200 OK` (successful response revision), `201 Created` (first submission), `400 Bad Request` (validation), `401 Unauthorized` (unauthenticated), `403 Forbidden` (role/ownership denied), `404 Not Found`, `409 Conflict` (concurrent submission write conflict), `422 Unprocessable Entity` (closed campaign rule).
 
 ### 4.2 Role & Ownership Permission Matrix (`BR-04`)
 | Operation / Endpoint | Unauthenticated | `RESPONDENT` | `CREATOR` (Non-Owner) | `CREATOR` (Owner) |
@@ -133,13 +134,37 @@ The application implements a cohesive, high-contrast **Pastel Pink (`#fadadd`)**
 | `GET /api/campaigns` | `401` | Allowed (`PUBLISHED` only) | Allowed (own campaigns) | Allowed (own campaigns) |
 | `POST /api/campaigns` | `401` | `403 Forbidden` | Allowed | Allowed |
 | `GET /api/campaigns/:id` | `401` | Allowed (if `PUBLISHED`) | `403 Forbidden` | Allowed |
-| `POST /api/campaigns/:id/submissions` | `401` | Allowed (once, if `PUBLISHED`) | `403 Forbidden` | `403 Forbidden` |
+| `POST /api/campaigns/:id/submissions` | `401` | Allowed to submit or revise own response if `PUBLISHED` and open (proposed BR-06) | `403 Forbidden` | `403 Forbidden` |
 | `GET /api/campaigns/:id/results` | `401` | `403 Forbidden` | `403 Forbidden` | Allowed |
 
 ### 4.3 Authentication & Session Lifecycle
 - **Login (`POST /api/auth/login`):** Looks up user by email, verifies password via `bcrypt.compare(plain, passwordHash)`. On success, signs a JWT (`{ userId, role }`, expiry `24h`) with `SESSION_SECRET` and sets cookie `pastelpulse_session` (`HttpOnly=true`, `SameSite=Lax`, `Secure` in production).
 - **Current User (`GET /api/auth/me`):** Middleware verifies JWT signature and expiry, queries current user record from PostgreSQL, and attaches `req.user`.
 - **Logout (`POST /api/auth/logout`):** Clears `pastelpulse_session` cookie (`Max-Age=0`) and returns `200 OK`. Subsequent requests to protected endpoints immediately receive `401 Unauthorized`.
+
+### 4.4 Submission Revision (Proposed Lab 7 Amendment)
+
+- The existing `POST /api/campaigns/:id/submissions` endpoint remains the only
+  submission endpoint. The authenticated identity supplies `respondentId`;
+  clients cannot select another respondent's submission.
+- The API checks authentication, `RESPONDENT` role, campaign existence and
+  openness, payload shape, question membership, and current answer validation
+  before changing stored data.
+- For a first valid response, behavior remains `201 Created`. For a valid
+  response when the respondent already has one, the API atomically updates that
+  submission's `submittedAt`, replaces its answer rows, retains its submission
+  ID, and returns `200 OK` with `updated: true`.
+- A failed validation or failed transaction leaves the previous response
+  unchanged. A closed/expired campaign remains rejected by BR-02. The unique
+  `(campaignId, respondentId)` constraint remains in place.
+- The respondent details endpoint already returns `hasSubmitted` and
+  `mySubmission`; the client must use that saved data to initialize an editable
+  form rather than permanently presenting it as read-only. Creator result
+  access and ownership checks are unchanged; results show the latest saved
+  answer set.
+- This amendment has no schema migration requirement. Historical submissions
+  are not backfilled; each future revision overwrites that respondent's prior
+  answer set and timestamp, with no revision audit history.
 
 ---
 
