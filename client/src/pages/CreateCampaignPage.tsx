@@ -45,6 +45,7 @@ export const CreateCampaignPage: React.FC = () => {
     isEditing ? [] : [{ prompt: 'Overall satisfaction', type: 'RATING_5', required: true }]
   );
   const [loadingDraft, setLoadingDraft] = useState(isEditing);
+  const [campaignStatus, setCampaignStatus] = useState<'DRAFT' | 'PUBLISHED' | 'CLOSED' | null>(null);
   const [error, setError] = useState('');
   const [submittingAction, setSubmittingAction] = useState<'DRAFT' | 'PUBLISHED' | null>(null);
 
@@ -75,7 +76,11 @@ export const CreateCampaignPage: React.FC = () => {
           return;
         }
         const data = body.data;
+        setCampaignStatus(data.status || null);
         setTitle(data.title || '');
+        if (data.status && data.status !== 'DRAFT') {
+          return;
+        }
         setDescription(data.description || '');
         setClosesAt(data.closesAt ? toLocalDateTimeInput(new Date(data.closesAt)) : '');
         setSections(data.sections || []);
@@ -217,6 +222,48 @@ export const CreateCampaignPage: React.FC = () => {
       <div className="container" style={{ width: '100%', maxWidth: '720px', boxSizing: 'border-box' }}>
         <div className="card" style={{ width: '100%', boxSizing: 'border-box', textAlign: 'center', padding: '3rem' }}>
           <div style={{ color: 'var(--color-text-muted)' }}>Loading survey draft...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isEditing && campaignStatus && campaignStatus !== 'DRAFT') {
+    return (
+      <div className="container" style={{ width: '100%', maxWidth: '720px', boxSizing: 'border-box' }}>
+        <div className="card" style={{ width: '100%', boxSizing: 'border-box' }}>
+          <h1
+            style={{
+              fontSize: '1.5rem',
+              fontWeight: 700,
+              marginBottom: '0.5rem',
+              color: 'var(--color-text-primary)',
+            }}
+          >
+            Survey Cannot Be Edited
+          </h1>
+          <p style={{ color: 'var(--color-text-muted)', marginBottom: '1.25rem', fontSize: '0.9rem' }}>
+            {title ? `"${title}" is currently ${campaignStatus}.` : `This survey is currently ${campaignStatus}.`}
+          </p>
+          <Alert
+            type="warning"
+            message="Only draft surveys can be edited. Published and closed surveys are locked to preserve respondent answers."
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+            <button
+              type="button"
+              className="btn-outline"
+              onClick={() => navigate('/campaigns')}
+            >
+              Back to Surveys
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => navigate(`/campaigns/${id}/results`)}
+            >
+              View Responses
+            </button>
+          </div>
         </div>
       </div>
     );
