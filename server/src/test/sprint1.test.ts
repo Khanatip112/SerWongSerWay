@@ -405,17 +405,20 @@ describe('Sprint 1 Integration Tests (TEST-01 to TEST-11)', () => {
   });
 
   // ============================================================================
-  // TEST-08 (AC-08, BR-01): Reject Duplicate Submissions
+  // TEST-13 replaces the Sprint 1 TEST-08 duplicate-rejection outcome.
   // ============================================================================
-  describe('TEST-08 (AC-08, BR-01): Duplicate submission rejection with 409 Conflict', () => {
-    it('should reject second submission from respondent1 on same campaign with 409 DUPLICATE_SUBMISSION', async () => {
+  describe('TEST-13 (AC-13, FR-11, BR-06): Revise existing response in place', () => {
+    it('should replace answers, keep one submission, and update the submitted time', async () => {
       const published = await prisma.campaign.findFirst({
         where: { title: SEED_CAMPAIGN_TITLES.published },
-        include: { questions: true },
+        include: { questions: { orderBy: { orderIndex: 'asc' } } },
       });
 
       expect(published).not.toBeNull();
-      const q = published!.questions[0];
+      const ratingQuestion = published!.questions.find((q) => q.type === 'RATING_5');
+      const textQuestion = published!.questions.find((q) => q.type === 'TEXT');
+      expect(ratingQuestion).toBeDefined();
+      expect(textQuestion).toBeDefined();
 
       const { cookie } = await loginAndGetCookie(
         app,
@@ -423,29 +426,43 @@ describe('Sprint 1 Integration Tests (TEST-01 to TEST-11)', () => {
         SEED_ACCOUNTS.respondent1.password
       );
 
-      const payload = {
-        answers: [{ questionId: q.id, ratingValue: 5 }],
-      };
-
-      // 1. First submission
       const firstRes = await request(app)
         .post(`/api/campaigns/${published!.id}/submissions`)
         .set('Cookie', cookie)
-        .send(payload);
+        .send({
+          answers: [
+            { questionId: ratingQuestion!.id, ratingValue: 5 },
+            { questionId: textQuestion!.id, textValue: 'Original comment' },
+          ],
+        });
 
       expect(firstRes.status).toBe(201);
+      const submissionId = firstRes.body.data.submissionId as string;
+      const priorTimestamp = new Date(Date.now() - 60_000);
+      await prisma.submission.update({
+        where: { id: submissionId },
+        data: { submittedAt: priorTimestamp },
+      });
 
-      // 2. Second duplicate submission
-      const secondRes = await request(app)
+      const revisionStartedAt = new Date();
+      const revisionRes = await request(app)
         .post(`/api/campaigns/${published!.id}/submissions`)
         .set('Cookie', cookie)
-        .send(payload);
+        .send({
+          answers: [{ questionId: ratingQuestion!.id, ratingValue: 4 }],
+        });
 
-      expect(secondRes.status).toBe(409);
-      expect(secondRes.body.error).toBeDefined();
-      expect(secondRes.body.error.code).toBe('DUPLICATE_SUBMISSION');
+      expect(revisionRes.status).toBe(200);
+      expect(revisionRes.body.data).toMatchObject({
+        submissionId,
+        campaignId: published!.id,
+        updated: true,
+      });
+      const revisionTimestamp = new Date(revisionRes.body.data.submittedAt).getTime();
+      expect(revisionTimestamp).toBeGreaterThan(priorTimestamp.getTime());
+      expect(revisionTimestamp).toBeGreaterThanOrEqual(revisionStartedAt.getTime() - 1000);
+      expect(revisionTimestamp).toBeLessThanOrEqual(Date.now() + 1000);
 
-      // Verify DB count remains exactly 1
       const respondent = await prisma.user.findUnique({
         where: { email: SEED_ACCOUNTS.respondent1.email },
       });
@@ -456,6 +473,182 @@ describe('Sprint 1 Integration Tests (TEST-01 to TEST-11)', () => {
         },
       });
       expect(subCount).toBe(1);
+
+      const saved = await prisma.submission.findUnique({
+        where: { id: submissionId },
+        include: { answers: true },
+      });
+      expect(saved?.submittedAt.getTime()).toBe(revisionTimestamp);
+      expect(saved?.answers).toHaveLength(1);
+      expect(saved?.answers[0]).toMatchObject({
+        questionId: ratingQuestion!.id,
+        ratingValue: 4,
+      });
+    });
+  });
+
+  // ============================================================================
+  // TEST-14 (AC-14, BR-02, BR-03, BR-06): Revision guards and isolation
+  // ============================================================================
+  describe('TEST-14 (AC-14, BR-02, BR-03, BR-06): Revision guards and isolation', () => {
+    async function getPublishedCampaign() {
+      const campaign = await prisma.campaign.findFirst({
+        where: { title: SEED_CAMPAIGN_TITLES.published },
+        include: { questions: { orderBy: { orderIndex: 'asc' } } },
+      });
+      expect(campaign).not.toBeNull();
+      return campaign!;
+    }
+
+    async function createInitialSubmission(
+      campaignId: string,
+      ratingQuestionId: string,
+      cookie: string
+    ): Promise<{ submissionId: string; submittedAt: Date }> {
+      const response = await request(app)
+        .post(`/api/campaigns/${campaignId}/submissions`)
+        .set('Cookie', cookie)
+        .send({ answers: [{ questionId: ratingQuestionId, ratingValue: 5 }] });
+
+      expect(response.status).toBe(201);
+      return {
+        submissionId: response.body.data.submissionId,
+        submittedAt: new Date(response.body.data.submittedAt),
+      };
+    }
+
+    it('should reject an invalid revision without changing the saved response', async () => {
+      const campaign = await getPublishedCampaign();
+      const ratingQuestion = campaign.questions.find((q) => q.type === 'RATING_5');
+      expect(ratingQuestion).toBeDefined();
+      const { cookie } = await loginAndGetCookie(
+        app,
+        SEED_ACCOUNTS.respondent1.email,
+        SEED_ACCOUNTS.respondent1.password
+      );
+      const original = await createInitialSubmission(campaign.id, ratingQuestion!.id, cookie);
+
+      const invalidRes = await request(app)
+        .post(`/api/campaigns/${campaign.id}/submissions`)
+        .set('Cookie', cookie)
+        .send({ answers: [{ questionId: ratingQuestion!.id, ratingValue: 6 }] });
+
+      expect(invalidRes.status).toBe(400);
+
+      const saved = await prisma.submission.findUnique({
+        where: { id: original.submissionId },
+        include: { answers: true },
+      });
+      expect(saved?.submittedAt.getTime()).toBe(original.submittedAt.getTime());
+      expect(saved?.answers).toHaveLength(1);
+      expect(saved?.answers[0]).toMatchObject({
+        questionId: ratingQuestion!.id,
+        ratingValue: 5,
+      });
+    });
+
+    it('should reject revisions after expiry or closure and preserve the original response', async () => {
+      const campaign = await getPublishedCampaign();
+      const ratingQuestion = campaign.questions.find((q) => q.type === 'RATING_5');
+      expect(ratingQuestion).toBeDefined();
+      const { cookie } = await loginAndGetCookie(
+        app,
+        SEED_ACCOUNTS.respondent1.email,
+        SEED_ACCOUNTS.respondent1.password
+      );
+      const original = await createInitialSubmission(campaign.id, ratingQuestion!.id, cookie);
+
+      try {
+        await prisma.campaign.update({
+          where: { id: campaign.id },
+          data: { closesAt: new Date(Date.now() - 60_000) },
+        });
+
+        const expiredRes = await request(app)
+          .post(`/api/campaigns/${campaign.id}/submissions`)
+          .set('Cookie', cookie)
+          .send({ answers: [{ questionId: ratingQuestion!.id, ratingValue: 4 }] });
+        expect(expiredRes.status).toBe(422);
+        expect(expiredRes.body.error.code).toBe('CAMPAIGN_NOT_OPEN');
+
+        await prisma.campaign.update({
+          where: { id: campaign.id },
+          data: { status: 'CLOSED', closesAt: new Date(Date.now() + 60_000) },
+        });
+        const closedRes = await request(app)
+          .post(`/api/campaigns/${campaign.id}/submissions`)
+          .set('Cookie', cookie)
+          .send({ answers: [{ questionId: ratingQuestion!.id, ratingValue: 3 }] });
+        expect(closedRes.status).toBe(422);
+        expect(closedRes.body.error.code).toBe('CAMPAIGN_NOT_OPEN');
+
+        const saved = await prisma.submission.findUnique({
+          where: { id: original.submissionId },
+          include: { answers: true },
+        });
+        expect(saved?.submittedAt.getTime()).toBe(original.submittedAt.getTime());
+        expect(saved?.answers).toHaveLength(1);
+        expect(saved?.answers[0].ratingValue).toBe(5);
+      } finally {
+        await prisma.campaign.update({
+          where: { id: campaign.id },
+          data: { status: campaign.status, closesAt: campaign.closesAt },
+        });
+      }
+    });
+
+    it('should preserve authentication, role, and respondent isolation', async () => {
+      const campaign = await getPublishedCampaign();
+      const ratingQuestion = campaign.questions.find((q) => q.type === 'RATING_5');
+      expect(ratingQuestion).toBeDefined();
+      const respondent1 = await loginAndGetCookie(
+        app,
+        SEED_ACCOUNTS.respondent1.email,
+        SEED_ACCOUNTS.respondent1.password
+      );
+      const original = await createInitialSubmission(
+        campaign.id,
+        ratingQuestion!.id,
+        respondent1.cookie
+      );
+
+      const anonymousRes = await request(app)
+        .post(`/api/campaigns/${campaign.id}/submissions`)
+        .send({ answers: [{ questionId: ratingQuestion!.id, ratingValue: 4 }] });
+      expect(anonymousRes.status).toBe(401);
+
+      const creator = await loginAndGetCookie(
+        app,
+        SEED_ACCOUNTS.creator1.email,
+        SEED_ACCOUNTS.creator1.password
+      );
+      const creatorRes = await request(app)
+        .post(`/api/campaigns/${campaign.id}/submissions`)
+        .set('Cookie', creator.cookie)
+        .send({ answers: [{ questionId: ratingQuestion!.id, ratingValue: 4 }] });
+      expect(creatorRes.status).toBe(403);
+
+      const respondent2 = await loginAndGetCookie(
+        app,
+        SEED_ACCOUNTS.respondent2.email,
+        SEED_ACCOUNTS.respondent2.password
+      );
+      const respondent2Res = await request(app)
+        .post(`/api/campaigns/${campaign.id}/submissions`)
+        .set('Cookie', respondent2.cookie)
+        .send({ answers: [{ questionId: ratingQuestion!.id, ratingValue: 3 }] });
+      expect(respondent2Res.status).toBe(201);
+      expect(respondent2Res.body.data.submissionId).not.toBe(original.submissionId);
+
+      const originalSaved = await prisma.submission.findUnique({
+        where: { id: original.submissionId },
+        include: { answers: true },
+      });
+      expect(originalSaved?.answers).toHaveLength(1);
+      expect(originalSaved?.answers[0].ratingValue).toBe(5);
+      expect(
+        await prisma.submission.count({ where: { campaignId: campaign.id } })
+      ).toBe(2);
     });
   });
 

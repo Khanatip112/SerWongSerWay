@@ -1,6 +1,6 @@
 # Lab 7 Engineering Contract — Revise an Existing Response
 
-**Status:** Proposed before implementation; teammate review pending.  
+**Status:** Teammate-approved in PR #37 before implementation; Issue #2 implementation completed.
 **Requirement IDs:** FR-11, BR-06.  
 **Affected baseline behavior:** FR-05 / BR-01 in F-03, AC-08 / TEST-08.
 
@@ -166,7 +166,11 @@ accepted from the request body.
 
 ## 6. Software Test Specification additions
 
-These are planned tests, not test results:
+The specifications below define the test coverage; actual RED, GREEN, and
+regression outcomes are recorded in
+[RED evidence](./evidence/red-test.md),
+[GREEN evidence](./evidence/green-test.md), and
+[the regression report](./evidence/regression-report.md).
 
 | Test ID | AC | Level | Preconditions and action | Expected result |
 |---|---|---|---|---|
@@ -184,7 +188,9 @@ results ownership.
 | Revision | Change | Status |
 |---|---|---|
 | Sprint 1 baseline | BR-01 rejected all duplicate submissions; TEST-08 verified `409` and one stored row. | Accepted historical behavior. |
-| Lab 7 proposal | Add FR-11/BR-06: revise existing answers in place while open; keep one row, preserve original baseline wording in history. | Proposed; teammate review pending; not implemented. |
+| Lab 7 proposal | Add FR-11/BR-06: revise existing answers in place while open; keep one row, preserve original baseline wording in history. | Teammate-approved in PR #37 before implementation. |
+| Issue #2 implementation | Validate revisions before atomically replacing answers and updating `submittedAt`; prefill the respondent form for open campaigns. | Implemented; TEST-13/TEST-14 GREEN and regression evidence recorded. |
 
-No instructor/TA approval requirement is added. Implementation must wait until
-this engineering contract and second-member review are complete.
+No instructor/TA approval requirement is added. The second-member contract
+review is recorded in PR #37; implementation may proceed under this reviewed
+contract.

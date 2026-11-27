@@ -38,4 +38,4 @@
 - **Coverage Gaps:** All baseline requirements remain mapped to a feature and target sprint. The proposed Lab 7 requirements FR-11 and BR-06 are mapped to F-03, AC-13/AC-14, and TEST-13/TEST-14; their tests are specified only and have not been implemented or run.
 - **Sprint 1 Scope Boundaries:** `FR-03`, `FR-07`, `FR-08`, `FR-09`, `FR-10`, and `BR-05` are intentionally scheduled for Sprints 2 and 3. In Sprint 1, newly created campaigns default to `PUBLISHED` status (with seeded `CLOSED` campaigns used to verify `BR-02` rejection behavior).
 - **Accepted Sprint 1 Baseline Changes:** None (v1.0 initial baseline).
-- **Proposed Lab 7 Change:** FR-11 / BR-06 amend the duplicate-submission outcome while preserving the unique one-record invariant. This is a proposed contract change pending teammate review, not an approved implementation or test result.
+- **Lab 7 Change:** FR-11 / BR-06 amend the duplicate-submission outcome while preserving the unique one-record invariant. The contract was approved by a teammate in PR #37; implementation and test results are still pending.

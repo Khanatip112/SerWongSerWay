@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
+  AnswerItem,
   Campaign,
   ContentBlock,
   Question,
@@ -38,6 +39,7 @@ interface FormRendererProps {
   onCancel?: () => void;
   submitting?: boolean;
   externalError?: string;
+  initialAnswers?: AnswerItem[];
   successActions?: React.ReactNode;
   disabled?: boolean;
 }
@@ -80,6 +82,7 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
   onCancel,
   submitting = false,
   externalError,
+  initialAnswers = [],
   successActions,
   disabled = false,
 }) => {
@@ -105,7 +108,22 @@ export const FormRenderer: React.FC<FormRendererProps> = ({
   const isVirtual = sections.length === 1 && sections[0].id === VIRTUAL_SECTION_ID;
 
   const [shuffleSeed] = useState(() => Math.floor(Math.random() * 2147483646) + 1);
-  const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
+  const [answers, setAnswers] = useState<Record<string, AnswerState>>(() => {
+    const initial: Record<string, AnswerState> = {};
+    for (const answer of initialAnswers) {
+      if (!answer.questionId) continue;
+      const ratingValue =
+        answer.ratingValue ?? (typeof answer.jsonValue === 'number' ? answer.jsonValue : undefined);
+      const textValue =
+        answer.textValue ?? (typeof answer.jsonValue === 'string' ? answer.jsonValue : undefined);
+      initial[answer.questionId] = {
+        ...(ratingValue !== null && ratingValue !== undefined ? { ratingValue } : {}),
+        ...(textValue !== null && textValue !== undefined ? { textValue } : {}),
+        ...(answer.jsonValue !== undefined ? { jsonValue: answer.jsonValue } : {}),
+      };
+    }
+    return initial;
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [currentSectionId, setCurrentSectionId] = useState<string>(sections[0]?.id || VIRTUAL_SECTION_ID);
   const [visitedStack, setVisitedStack] = useState<string[]>([]);
