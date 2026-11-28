@@ -589,6 +589,16 @@ router.put(
         return;
       }
 
+      if (existing.status !== CampaignStatus.DRAFT) {
+        res.status(409).json({
+          error: {
+            code: 'CAMPAIGN_NOT_EDITABLE',
+            message: 'Only draft surveys can be edited.',
+          },
+        });
+        return;
+      }
+
       const existingSectionIds = new Set(existing.sections.map((section) => section.id));
       const existingQuestionIds = new Set(existing.questions.map((question) => question.id));
       const existingBlockIds = new Set(existing.contentBlocks.map((block) => block.id));
